@@ -1,0 +1,30 @@
+#
+# 构建时配置选项
+#
+
+# 设置库的编译类型，默认为动态库
+set(${PROJECT_NAME}_LIBRARY_TYPE "SHARED" CACHE STRING "STATIC | SHARED")
+
+# 编译出的静态库需要提供给动态库链接时启用，可能会降低代码运行性能（编译动态库时 CMake 会强制启用）
+option(${PROJECT_NAME}_POSITION_INDEPENDENT_CODE "启用 -fPIC 编译选项" ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ${${PROJECT_NAME}_POSITION_INDEPENDENT_CODE})
+
+# 控制是否编译 test 案例和引入 CTest 工具
+option(${PROJECT_NAME}_BUILD_TEST "是否编译测试代码" ON)
+
+# 控制是否编译 example 案例
+option(${PROJECT_NAME}_BUILD_EXAMPLE "是否编译示例代码" ON)
+
+# 控制是否进行 CPack 配置
+option(${PROJECT_NAME}_USE_CPACK "是否进行 CPack 配置" OFF)
+
+# 控制是否进行 install 配置
+option(${PROJECT_NAME}_ENABLE_INSTALL "是否进行 install 配置" ON)
+
+# 打印调试信息
+message(STATUS "${PROJECT_NAME}_LIBRARY_TYPE: ${${PROJECT_NAME}_LIBRARY_TYPE}")
+message(STATUS "${PROJECT_NAME}_POSITION_INDEPENDENT_CODE: ${${PROJECT_NAME}_POSITION_INDEPENDENT_CODE}")
+message(STATUS "${PROJECT_NAME}_BUILD_TEST: ${${PROJECT_NAME}_BUILD_TEST}")
+message(STATUS "${PROJECT_NAME}_BUILD_EXAMPLE: ${${PROJECT_NAME}_BUILD_EXAMPLE}")
+message(STATUS "${PROJECT_NAME}_USE_CPACK: ${${PROJECT_NAME}_USE_CPACK}")
+message(STATUS "${PROJECT_NAME}_ENABLE_INSTALL: ${${PROJECT_NAME}_ENABLE_INSTALL}")

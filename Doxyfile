@@ -1,0 +1,76 @@
+# ==================== 项目信息 ====================
+PROJECT_NAME  = "My Project"
+PROJECT_BRIEF = "项目简要说明"
+
+# ==================== 源代码输入 ====================
+# 源代码目录（设置多个用空格分隔）
+INPUT                   = ./src ./include ./docs ./README.md
+# 递归搜索子目录
+RECURSIVE               = YES
+# 需要扫描的文件后缀（根据语言调整）
+FILE_PATTERNS           = *.cpp *c *.cc *.cxx *.h *.hpp *.hxx *.md
+# 排除某些符号，例如 namespace::class, namespace::*Test, *::details
+EXCLUDE_SYMBOLS         = 
+# 使用某个 Markdown 文件作为首页
+USE_MDFILE_AS_MAINPAGE  = README.md
+
+# ==================== 文档输出 ====================
+# 生成文档的语言
+OUTPUT_LANGUAGE         = Chinese
+# 生成文档的根目录
+OUTPUT_DIRECTORY        = ./docs
+# 生成 HTML 文档
+GENERATE_HTML           = YES
+# 不生成 LaTeX（可用于生成 PDF）
+GENERATE_LATEX          = NO
+# HTML 输出子目录（相对 OUTPUT_DIRECTORY）
+HTML_OUTPUT             = html
+# HTML 输出时间戳（在页脚显示生成时间）
+HTML_TIMESTAMP          = YES
+# For Doxygen-Awesome
+HTML_COLORSTYLE         = LIGHT
+HTML_HEADER             = deps/doxygen-awesome/header.html
+HTML_EXTRA_FILES        = deps/doxygen-awesome/doxygen-awesome-darkmode-toggle.js
+HTML_EXTRA_STYLESHEET   = deps/doxygen-awesome/doxygen-awesome.css \
+                          deps/doxygen-awesome/doxygen-awesome-sidebar-only-darkmode-toggle.css
+
+
+# ==================== 提取选项 ====================
+# 提取所有实体（即使没有注释）
+EXTRACT_ALL             = YES
+# 是否提取私有成员（按需开启）
+EXTRACT_PRIVATE         = NO
+# 提取静态成员
+EXTRACT_STATIC          = YES
+
+# ==================== 图表（需安装 Graphviz） ====================
+# 启用 Graphviz 生成类图、调用图
+HAVE_DOT                = YES
+# 使用 SVG 而不是 PNG（放大不失真，文件更小）
+DOT_IMAGE_FORMAT        = svg
+INTERACTIVE_SVG         = YES
+# 使用 UML 风格的类图
+UML_LOOK = YES
+# 限制图表深度防止爆炸（大型项目）
+DOT_GRAPH_MAX_NODES     = 100
+# 类关系图 —— 显示继承和组合关系
+CLASS_GRAPH             = YES
+COLLABORATION_GRAPH     = YES
+# 生成调用图
+CALL_GRAPH              = YES
+# 生成被调用图
+CALLER_GRAPH            = YES
+# Include 依赖图 —— 展示头文件互相 include 的关系
+INCLUDE_GRAPH           = YES
+INCLUDED_BY_GRAPH       = YES
+
+# ==================== 美化选项 ====================
+# 侧边栏树形导航
+GENERATE_TREEVIEW       = YES
+# 搜索功能
+SEARCHENGINE            = YES
+# 源代码浏览
+SOURCE_BROWSER          = YES
+# For Doxygen-Awesome
+DISABLE_INDEX           = NO
+FULL_SIDEBAR            = NO

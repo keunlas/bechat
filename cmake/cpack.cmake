@@ -1,0 +1,23 @@
+if(${PROJECT_NAME}_USE_CPACK)
+#
+# CPack 配置选项
+#
+
+# 打包名称
+set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_PACKAGE_DIRECTORY ${CMAKE_BINARY_DIR}/release)
+
+# 打包格式
+if(WIN32)
+  set(CPACK_BINARY_ZIP "ON")
+  # set(CPACK_BINARY_NSIS "ON") # 需要安装 NSIS
+else()
+  set(CPACK_BINARY_TGZ "ON")
+  # set(CPACK_BINARY_STGZ "ON") # 自解压安装脚本
+endif()
+
+# 引入 CPack 工具
+include(CPack)
+endif()

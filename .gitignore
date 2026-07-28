@@ -1,0 +1,30 @@
+*
+!*/
+
+/build/
+/release/
+/bin/
+/lib/
+
+!.gitignore
+!.gitkeep
+!.clang-format
+
+!README.md
+!LICENSE
+!Doxyfile
+!CMakeLists.txt
+
+!/.github/**/*.yml
+!/cmake/**/*.cmake
+
+!/deps/**/*
+!/docs/**/*
+/docs/html/
+
+!/test/**/*
+!/example/**/*
+
+# !/include/**/*.h
+# !/include/**/*.hpp
+# !/src/**/*.cpp
