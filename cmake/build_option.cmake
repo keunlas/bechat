@@ -16,7 +16,7 @@ option(${PROJECT_NAME}_BUILD_TEST "是否编译测试代码" ON)
 option(${PROJECT_NAME}_BUILD_EXAMPLE "是否编译示例代码" ON)
 
 # 控制是否进行 CPack 配置
-option(${PROJECT_NAME}_USE_CPACK "是否进行 CPack 配置" OFF)
+option(${PROJECT_NAME}_USE_CPACK "是否进行 CPack 配置" ON)
 
 # 控制是否进行 install 配置
 option(${PROJECT_NAME}_ENABLE_INSTALL "是否进行 install 配置" ON)

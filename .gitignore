@@ -20,11 +20,10 @@
 
 !/deps/**/*
 !/docs/**/*
-/docs/html/
 
 !/test/**/*
 !/example/**/*
 
-# !/include/**/*.h
-# !/include/**/*.hpp
-# !/src/**/*.cpp
+!/bechat/**/*.h
+!/bechat/**/*.hpp
+!/bechat/**/*.cpp
