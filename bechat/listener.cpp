@@ -1,16 +1,15 @@
 #include "listener.h"
 
-#include <spdlog/spdlog.h>
-
 #include <memory>
 
+#include "logger.h"
 #include "session.h"
 
 Listener::Listener(IoThreads& io_threads,
                    const asio::ip::tcp::endpoint& endpoint)
     : acceptor_(io_threads.io_context(), endpoint) {
-  spdlog::info("Accepting from {}:{}", endpoint.address().to_string(),
-               endpoint.port());
+  Log::Info("BeChat is running in {}:{}", endpoint.address().to_string(),
+            endpoint.port());
   do_accept();
 }
 
