@@ -14,12 +14,13 @@
 
 std::string TlvMessage::SerializeToString() {
   std::string result{};
+  result.reserve(value_.size() + sizeof(TagT) + sizeof(LengthT));
 
   auto tag = htobe16(tag_);
-  result.append(reinterpret_cast<char*>(tag), sizeof(tag));
+  result.append(reinterpret_cast<char*>(&tag), sizeof(tag));
 
   auto length = htobe16(length_);
-  result.append(reinterpret_cast<char*>(length), sizeof(length));
+  result.append(reinterpret_cast<char*>(&length), sizeof(length));
 
   result.append(value_);
 
