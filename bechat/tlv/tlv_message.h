@@ -2,7 +2,7 @@
  * @file tlv_message.h
  * @author Keunlas
  * @brief 最基础的 TLV 消息类
- * @date 2026-08-15
+ * @date 2026-08-16
  *
  * @copyright Copyright (c) 2026
  *
@@ -38,6 +38,9 @@ class TlvMessage {
   inline ValueT* mutable_value() { return &value_; }
 
   inline void set_value(const ValueT& value) { value_ = value; }
+
+ public:
+  std::string SerializeToString();
 
  private:
   TagT tag_{};

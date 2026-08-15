@@ -1,0 +1,27 @@
+/**
+ * @file tlv_message.cpp
+ * @author Keunlas
+ * @brief 最基础的 TLV 消息类
+ * @date 2026-08-16
+ *
+ * @copyright Copyright (c) 2026
+ *
+ */
+
+#include "bechat/tlv/tlv_message.h"
+
+#include <endian.h>
+
+std::string TlvMessage::SerializeToString() {
+  std::string result{};
+
+  auto tag = htobe16(tag_);
+  result.append(reinterpret_cast<char*>(tag), sizeof(tag));
+
+  auto length = htobe16(length_);
+  result.append(reinterpret_cast<char*>(length), sizeof(length));
+
+  result.append(value_);
+
+  return result;
+}
