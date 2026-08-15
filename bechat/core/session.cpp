@@ -26,8 +26,7 @@ void Session::read_tag() {
                               input_msg_.set_tag(be16toh(input_msg_.tag()));
                               read_length();
                             } else {
-                              WARN("Error ocurred in Session {}, read_tag: {}",
-                                   (void*)this, ec.message());
+                              handle_error(ec);
                             }
                           }));
 }
@@ -43,8 +42,7 @@ void Session::read_length() {
               input_msg_.set_length(be16toh(input_msg_.length()));
               read_value(input_msg_.length());
             } else {
-              WARN("Error ocurred in Session {}, read_length: {}", (void*)this,
-                   ec.message());
+              handle_error(ec);
             }
           }));
 }
@@ -67,8 +65,7 @@ void Session::read_value(uint16_t len) {
           write_resp();
           read_tag();  // TCP 全双工通信，读写可同时进行
         } else {
-          WARN("Error ocurred in Session {}, read_value: {}", (void*)this,
-               ec.message());
+          handle_error(ec);
         }
       }));
 }
@@ -77,6 +74,7 @@ void Session::write_resp() {
   auto self(shared_from_this());
   auto msg = std::make_shared<TlvMessage>(input_msg_);
   asio::post(write_strand_, [this, self, msg]() {
+    if (closing_) return;
     write_queue_.push(std::move(msg));
     if (!writing_) {
       start_writing();
@@ -87,7 +85,7 @@ void Session::write_resp() {
 void Session::start_writing() {
   assert(write_strand_.running_in_this_thread());
 
-  if (write_queue_.empty()) {
+  if (write_queue_.empty() || closing_) {
     writing_ = false;
     return;
   }
@@ -108,11 +106,29 @@ void Session::start_writing() {
               TRACE("writing a resp: done");
               start_writing();
             } else {
-              WARN(
-                  "Error ocurred in Session {}, start_writing: {}, "
-                  "Session is shutting down.",
-                  (void*)this, ec.message());
-              socket_.shutdown(asio::socket_base::shutdown_both);
+              handle_error(ec);
             }
           }));
+}
+
+void Session::handle_error(const std::error_code& ec) {
+  assert(write_strand_.running_in_this_thread() ||
+         read_strand_.running_in_this_thread());
+
+  if (closing_.exchange(true)) return;
+
+  ERROR("Session {} is shutting down due to error: {}", (void*)this,
+        ec.message());
+
+  auto self = shared_from_this();
+
+  // 首先使用 cancel 同时取消挂起的 async_read 和 async_write
+  // 然后使用 shutdown 关闭 socket 的读端和写端
+  // 最后使用 close 关闭 socket
+  asio::post(write_strand_, [this, self]() {
+    std::error_code ignored_ec;
+    socket_.cancel(ignored_ec);
+    socket_.shutdown(asio::socket_base::shutdown_both, ignored_ec);
+    socket_.close(ignored_ec);
+  });
 }
