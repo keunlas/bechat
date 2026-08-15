@@ -1,22 +1,25 @@
-#include "session.h"
+#include "bechat/core/session.h"
 
 #include <endian.h>
 
-#include "logger.h"
+#include "bechat/utils/logger.h"
 
 Session::Session(asio::ip::tcp::socket socket) : socket_(std::move(socket)) {}
 
-Session::~Session() { Log::Trace("Session {} has closed.", (void*)this); }
+Session::~Session() { INFO("Session {} has closed.", (void*)this); }
 
-void Session::read_type() {
+void Session::Start() {
+  INFO("Session {} has started.", (void*)this);
+  read_tag();
+}
+
+void Session::read_tag() {
   auto self(shared_from_this());
   asio::async_read(
-      socket_,
-      asio::buffer(input_msg_.mutable_type(), sizeof(TlvMessage::TypeT)),
+      socket_, asio::buffer(input_msg_.mutable_tag(), sizeof(TlvMessage::TagT)),
       [this, self](std::error_code ec, std::size_t) {
         if (!ec) {
-          input_msg_.set_type(be16toh(input_msg_.type()));
-          Log::Trace("type: 0x{:x}", input_msg_.type());
+          input_msg_.set_tag(be16toh(input_msg_.tag()));
           read_length();
         }
       });
@@ -30,7 +33,6 @@ void Session::read_length() {
       [this, self](std::error_code ec, std::size_t) {
         if (!ec) {
           input_msg_.set_length(be16toh(input_msg_.length()));
-          Log::Trace("length: {}", input_msg_.length());
           read_value(input_msg_.length());
         }
       });
@@ -46,18 +48,24 @@ void Session::read_value(uint16_t len) {
       asio::buffer(input_msg_.mutable_value()->data(), input_msg_.length()),
       [this, self](std::error_code ec, std::size_t) {
         if (!ec) {
-          Log::Trace("value: recv done");
+          TRACE("Session {} read a message: [0x{:x}][{}][{} bytes of value]",
+                (void*)this, input_msg_.tag(), input_msg_.length(),
+                input_msg_.value().size());
+
           do_write();
+          read_tag();
         }
       });
 }
 
 void Session::do_write() {
   auto self(shared_from_this());
-  asio::async_write(socket_, asio::buffer(input_msg_.value()),
-                    [this, self](std::error_code ec, std::size_t /*length*/) {
-                      if (!ec) {
-                        Log::Trace("do_write: done");
-                      }
-                    });
+  auto msg = std::make_shared<TlvMessage>(input_msg_);
+  asio::async_write(
+      socket_, asio::buffer(msg->value()),
+      [this, self, msg](std::error_code ec, std::size_t /*length*/) {
+        if (!ec) {
+          TRACE("do_write: done");
+        }
+      });
 }

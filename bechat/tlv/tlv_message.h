@@ -1,3 +1,13 @@
+/**
+ * @file tlv_message.h
+ * @author Keunlas
+ * @brief 最基础的 TLV 消息类
+ * @date 2026-08-15
+ *
+ * @copyright Copyright (c) 2026
+ *
+ */
+
 #ifndef BECHAT_TLV_TLV_MESSAGE_H_
 #define BECHAT_TLV_TLV_MESSAGE_H_
 
@@ -6,16 +16,16 @@
 
 class TlvMessage {
  public:
-  using TypeT = uint16_t;
+  using TagT = uint16_t;
   using LengthT = uint16_t;
   using ValueT = std::string;
 
  public:
-  inline TypeT type() const { return type_; }
+  inline TagT tag() const { return tag_; }
 
-  inline TypeT* mutable_type() { return &type_; }
+  inline TagT* mutable_tag() { return &tag_; }
 
-  inline void set_type(TypeT type) { type_ = type; }
+  inline void set_tag(TagT tag) { tag_ = tag; }
 
   inline LengthT length() const { return length_; }
 
@@ -30,7 +40,7 @@ class TlvMessage {
   inline void set_value(const ValueT& value) { value_ = value; }
 
  private:
-  TypeT type_{};
+  TagT tag_{};
   LengthT length_{};
   ValueT value_{};
 };
