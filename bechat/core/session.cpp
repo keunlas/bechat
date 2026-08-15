@@ -72,10 +72,13 @@ void Session::read_value(uint16_t len) {
 
 void Session::write_resp() {
   auto self(shared_from_this());
-  auto msg = std::make_shared<TlvMessage>(input_msg_);
-  asio::post(write_strand_, [this, self, msg]() {
+
+  // [TODO] 处理 input_msg_ 并准备好要返回的 resp_msg
+  auto resp_msg = std::make_shared<TlvMessage>(input_msg_);
+
+  asio::post(write_strand_, [this, self, resp_msg]() {
     if (closing_) return;
-    write_queue_.push(std::move(msg));
+    write_queue_.push(std::move(resp_msg->SerializeToString()));
     if (!writing_) {
       start_writing();
     }
@@ -92,23 +95,25 @@ void Session::start_writing() {
 
   writing_ = true;
   auto self(shared_from_this());
-  auto msg = write_queue_.front();
+  const std::string& resp_msg_str = write_queue_.front();
 
   asio::async_write(
-      socket_, asio::buffer(msg->value()),
-      asio::bind_executor(
-          write_strand_,
-          [this, self, msg](std::error_code ec, std::size_t /*length*/) {
-            write_queue_.pop();
-            writing_ = false;
+      socket_, asio::buffer(resp_msg_str),
+      asio::bind_executor(write_strand_,
+                          [this, self, resp_msg_str_size = resp_msg_str.size()](
+                              std::error_code ec, std::size_t writed_length) {
+                            (void)writed_length;
+                            write_queue_.pop();
+                            writing_ = false;
 
-            if (!ec) {
-              TRACE("writing a resp: done");
-              start_writing();
-            } else {
-              handle_error(ec);
-            }
-          }));
+                            if (!ec) {
+                              assert(resp_msg_str_size == writed_length);
+                              TRACE("writing a resp: done");
+                              start_writing();
+                            } else {
+                              handle_error(ec);
+                            }
+                          }));
 }
 
 void Session::handle_error(const std::error_code& ec) {

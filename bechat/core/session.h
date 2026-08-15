@@ -32,7 +32,7 @@ class Session : public std::enable_shared_from_this<Session> {
   TlvMessage input_msg_{};
 
   asio::strand<asio::any_io_executor> write_strand_;
-  std::queue<std::shared_ptr<TlvMessage>> write_queue_{};
+  std::queue<std::string> write_queue_{};
   bool writing_{false};
 
   std::atomic_bool closing_{false};
