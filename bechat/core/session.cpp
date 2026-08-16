@@ -73,7 +73,7 @@ void Session::read_value(uint16_t len) {
                 (void*)this, input_msg_.tag(), input_msg_.length(),
                 input_msg_.value().size());
 
-          write_resp();
+          on_read_completed();
           read_tag();  // TCP 全双工通信，读写可同时进行
         } else {
           handle_error(ec);
@@ -81,18 +81,33 @@ void Session::read_value(uint16_t len) {
       }));
 }
 
-void Session::write_resp() {
+void Session::on_read_completed() {
+  assert(read_strand_.running_in_this_thread());
+
+  /**
+   * 这里已经完整的接收到了一条 message 到 input_msg_ 中，
+   * 首先需要把当前的 input_msg_ 拷贝一份出来，
+   * 然后在 write_strand_ 中进行该 message 的处理，
+   * 处理完成后将序列化好的响应字符串添加到 write_queue_ 中。
+   */
+
   auto self(shared_from_this());
-
-  // [TODO] 处理 input_msg_ 并准备好要返回的 resp_msg
-  auto resp_msg = std::make_shared<TlvMessage>(input_msg_);
-
-  asio::post(write_strand_, [this, self, resp_msg]() {
+  auto request_msg = std::make_shared<TlvMessage>(input_msg_);
+  asio::post(write_strand_, [this, self, request_msg]() {
     if (closing_) return;
-    write_queue_.push(std::move(resp_msg->SerializeToString()));
-    if (!writing_) {
-      start_writing();
+
+    {
+      /**
+       * [TODO]
+       * 在这里进行 request_msg 的处理，
+       * 目前相关的 Message 处理逻辑还没有实现，
+       * 所以这里直接收到了什么东西就返回什么东西。
+       * 直接把 request_msg 序列化后添加到 write_queue_ 中。
+       */
+      write_queue_.push(std::move(request_msg->SerializeToString()));
     }
+
+    if (!writing_) start_writing();
   });
 }
 
@@ -135,6 +150,13 @@ void Session::handle_error(const std::error_code& ec) {
 
   ERROR("Session {} is shutting down due to error: {}", (void*)this,
         ec.message());
+
+  handle_close();
+}
+
+void Session::handle_close() {
+  assert(write_strand_.running_in_this_thread() ||
+         read_strand_.running_in_this_thread());
 
   auto self = shared_from_this();
 

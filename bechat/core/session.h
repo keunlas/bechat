@@ -20,11 +20,12 @@ class Session : public std::enable_shared_from_this<Session> {
   void read_tag();
   void read_length();
   void read_value(uint16_t len);
+  void on_read_completed();
 
-  void write_resp();
-  void start_writing();
+  void start_writing();  // 将 write_queue_ 中的字符串发送出去
 
   void handle_error(const std::error_code& ec);
+  void handle_close();
 
  private:
   asio::ip::tcp::socket socket_;
