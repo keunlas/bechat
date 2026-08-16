@@ -13,15 +13,22 @@ Session::~Session() { INFO("Session {} has closed.", (void*)this); }
 
 void Session::Start() {
   INFO("Session {} has started.", (void*)this);
-  read_tag();
+
+  auto self(shared_from_this());
+  asio::post(read_strand_, [this, self]() {
+    if (closing_) return;
+    read_tag();
+  });
 }
 
 void Session::read_tag() {
+  assert(read_strand_.running_in_this_thread());
   auto self(shared_from_this());
   asio::async_read(
       socket_, asio::buffer(input_msg_.mutable_tag(), sizeof(TlvMessage::TagT)),
       asio::bind_executor(read_strand_,
                           [this, self](std::error_code ec, std::size_t) {
+                            if (closing_) return;
                             if (!ec) {
                               input_msg_.set_tag(be16toh(input_msg_.tag()));
                               read_length();
@@ -32,12 +39,14 @@ void Session::read_tag() {
 }
 
 void Session::read_length() {
+  assert(read_strand_.running_in_this_thread());
   auto self(shared_from_this());
   asio::async_read(
       socket_,
       asio::buffer(input_msg_.mutable_length(), sizeof(TlvMessage::LengthT)),
       asio::bind_executor(
           read_strand_, [this, self](std::error_code ec, std::size_t) {
+            if (closing_) return;
             if (!ec) {
               input_msg_.set_length(be16toh(input_msg_.length()));
               read_value(input_msg_.length());
@@ -48,6 +57,7 @@ void Session::read_length() {
 }
 
 void Session::read_value(uint16_t len) {
+  assert(read_strand_.running_in_this_thread());
   assert(input_msg_.length() == len);
   (void)len;
   auto self(shared_from_this());
@@ -57,6 +67,7 @@ void Session::read_value(uint16_t len) {
       asio::buffer(input_msg_.mutable_value()->data(), input_msg_.length()),
       asio::bind_executor(read_strand_, [this, self](std::error_code ec,
                                                      std::size_t) {
+        if (closing_) return;
         if (!ec) {
           TRACE("Session {} read a message: [0x{:x}][{}][{} bytes of value]",
                 (void*)this, input_msg_.tag(), input_msg_.length(),
