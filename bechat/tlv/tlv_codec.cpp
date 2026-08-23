@@ -40,7 +40,6 @@ TlvMessage TlvCodec::MakeResponse(MessageTag::Resp::Type resp_tag,
   writer.WriteBytes<const char>(body);
 
   response.set_value(value);
-  response.set_length(static_cast<TlvMessage::LengthT>(value.size()));
   return response;
 }
 
@@ -58,7 +57,6 @@ TlvMessage TlvCodec::MakeError(uint32_t request_id, uint16_t request_tag,
   writer.WriteInt<uint16_t>(static_cast<uint16_t>(status));
 
   error.set_value(value);
-  error.set_length(static_cast<TlvMessage::LengthT>(value.size()));
   return error;
 }
 
@@ -67,6 +65,5 @@ TlvMessage TlvCodec::MakePush(MessageTag::Push::Type push_tag,
   TlvMessage push;
   push.set_tag(static_cast<uint16_t>(push_tag));
   push.set_value(std::string(body));
-  push.set_length(static_cast<TlvMessage::LengthT>(body.size()));
   return push;
 }
