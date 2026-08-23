@@ -42,29 +42,29 @@ void Session::read_length() {
   assert(read_strand_.running_in_this_thread());
   auto self(shared_from_this());
   asio::async_read(
-      socket_,
-      asio::buffer(input_msg_.mutable_length(), sizeof(TlvMessage::LengthT)),
-      asio::bind_executor(
-          read_strand_, [this, self](std::error_code ec, std::size_t) {
-            if (closing_) return;
-            if (!ec) {
-              input_msg_.set_length(be16toh(input_msg_.length()));
-              read_value(input_msg_.length());
-            } else {
-              handle_error(ec);
-            }
-          }));
+      socket_, asio::buffer(&msg_value_len_, sizeof(TlvMessage::LengthT)),
+      asio::bind_executor(read_strand_,
+                          [this, self](std::error_code ec, std::size_t) {
+                            if (closing_) return;
+                            if (!ec) {
+                              msg_value_len_ = be16toh(msg_value_len_);
+                              read_value(msg_value_len_);
+                            } else {
+                              handle_error(ec);
+                            }
+                          }));
 }
 
 void Session::read_value(uint16_t len) {
   assert(read_strand_.running_in_this_thread());
-  assert(input_msg_.length() == len);
+  assert(msg_value_len_ == len);
   (void)len;
   auto self(shared_from_this());
-  input_msg_.mutable_value()->resize(input_msg_.length());
+  input_msg_.mutable_value()->resize(msg_value_len_);
   asio::async_read(
       socket_,
-      asio::buffer(input_msg_.mutable_value()->data(), input_msg_.length()),
+      asio::buffer(input_msg_.mutable_value()->data(),
+                   input_msg_.mutable_value()->size()),
       asio::bind_executor(read_strand_, [this, self](std::error_code ec,
                                                      std::size_t) {
         if (closing_) return;

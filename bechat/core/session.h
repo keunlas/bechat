@@ -37,6 +37,7 @@ class Session : public std::enable_shared_from_this<Session> {
   asio::strand<asio::any_io_executor> read_strand_;
   // 只在 read_strand_ 中进行修改
   TlvMessage input_msg_{};
+  TlvMessage::LengthT msg_value_len_{};
 
   // 写 strand 用来进行写操作
   asio::strand<asio::any_io_executor> write_strand_;
