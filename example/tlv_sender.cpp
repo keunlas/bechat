@@ -24,10 +24,9 @@
  * 发送成功后等待并打印服务器返回的 TLV 响应（超时 3 秒）。
  */
 
-#include <asio.hpp>
-
 #include <endian.h>
 
+#include <asio.hpp>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
@@ -42,7 +41,7 @@ constexpr int kReadTimeoutMs = 3000;
 
 // 等待 socket 可读，最多 timeout_ms 毫秒；可读返回 true，超时/出错返回 false。
 bool WaitReadable(asio::ip::tcp::socket& socket, int timeout_ms) {
-  struct pollfd pfd {};
+  struct pollfd pfd{};
   pfd.fd = socket.native_handle();
   pfd.events = POLLIN;
   int ret = ::poll(&pfd, 1, timeout_ms);
@@ -61,24 +60,23 @@ bool ReadOneTlv(asio::ip::tcp::socket& socket, TlvMessage& msg,
   }
 
   std::error_code ec;
-  asio::read(socket,
-             asio::buffer(msg.mutable_tag(), sizeof(TlvMessage::TagT)), ec);
+  asio::read(socket, asio::buffer(msg.mutable_tag(), sizeof(TlvMessage::TagT)),
+             ec);
   if (ec) {
     std::cerr << "  read tag failed: " << ec.message() << "\n";
     return false;
   }
   msg.set_tag(be16toh(msg.tag()));
 
-  asio::read(socket,
-             asio::buffer(msg.mutable_length(), sizeof(TlvMessage::LengthT)),
-             ec);
+  TlvMessage::LengthT msg_len{0};
+  asio::read(socket, asio::buffer(&msg_len, sizeof(TlvMessage::LengthT)), ec);
   if (ec) {
     std::cerr << "  read length failed: " << ec.message() << "\n";
     return false;
   }
-  msg.set_length(be16toh(msg.length()));
+  msg_len = be16toh(msg_len);
 
-  msg.mutable_value()->resize(msg.length());
+  msg.mutable_value()->resize(msg_len);
   asio::read(socket, asio::buffer(msg.mutable_value()->data(), msg.length()),
              ec);
   if (ec) {
@@ -147,13 +145,12 @@ bool ParseLine(const std::string& line, TlvMessage& msg) {
     return false;
   }
   if (value.size() > len) {
-    std::cout << "  (note: value truncated from " << value.size()
-              << " to " << len << " bytes)\n";
+    std::cout << "  (note: value truncated from " << value.size() << " to "
+              << len << " bytes)\n";
     value.resize(len);
   }
 
   msg.set_tag(static_cast<TlvMessage::TagT>(tag));
-  msg.set_length(static_cast<TlvMessage::LengthT>(len));
   msg.set_value(value);
   return true;
 }
@@ -213,4 +210,3 @@ int main(int argc, char* argv[]) {
 
   return 0;
 }
-
