@@ -27,11 +27,7 @@ class TlvMessage {
 
   inline void set_tag(TagT tag) { tag_ = tag; }
 
-  inline LengthT length() const { return length_; }
-
-  inline LengthT* mutable_length() { return &length_; }
-
-  inline void set_length(LengthT length) { length_ = length; }
+  inline LengthT length() const { return value_.length(); }
 
   inline const ValueT& value() const { return value_; }
 
@@ -44,8 +40,7 @@ class TlvMessage {
 
  private:
   TagT tag_{};
-  LengthT length_{};
-  ValueT value_{};
+  ValueT value_{};  // ValueT should contains two fields: length and data
 };
 
 #endif  // !BECHAT_TLV_TLV_MESSAGE_H_

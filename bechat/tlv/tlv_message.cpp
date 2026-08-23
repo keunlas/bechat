@@ -19,7 +19,7 @@ std::string TlvMessage::SerializeToString() {
   auto tag = htobe16(tag_);
   result.append(reinterpret_cast<char*>(&tag), sizeof(tag));
 
-  auto length = htobe16(length_);
+  auto length = htobe16(static_cast<LengthT>(value_.length()));
   result.append(reinterpret_cast<char*>(&length), sizeof(length));
 
   result.append(value_);
