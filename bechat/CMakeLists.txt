@@ -12,6 +12,7 @@ target_sources(bechat PRIVATE
 
 target_sources(bechat PRIVATE
   tlv/tlv_message.cpp
+  tlv/tlv_codec.cpp
 )
 
 target_include_directories(bechat PRIVATE ${PROJECT_SOURCE_DIR})
