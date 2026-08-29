@@ -12,6 +12,7 @@
 #define BECHAT_TLV_TLV_MESSAGE_H_
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
 class TlvMessage {
