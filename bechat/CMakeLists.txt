@@ -3,6 +3,7 @@ add_executable(bechat bechat.cpp)
 target_sources(bechat PRIVATE
   core/acceptor.cpp
   core/session.cpp
+  core/server_context.cpp
 )
 
 target_sources(bechat PRIVATE

@@ -13,9 +13,13 @@
 
 #include "bechat/core/session.h"
 #include "bechat/proto/request_result.h"
+#include "bechat/utils/io_threads.h"
 #include "bechat/utils/types.h"
 
 class ServerContext {
+  //  public:
+  //   ServerContext(IoThreads& io_threads);
+
  public:
   /// @brief 同步且阻塞的处理 session 收到的 request
   /// @param session std::shared_ptr<Session>
@@ -26,6 +30,9 @@ class ServerContext {
   /// @brief 向所有在线的 Session 推送一条消息
   /// @param push
   void Broadcast(TlvMessagePtr push);
+
+  //  private:
+  //   IoThreads& io_threads_;
 };
 
 #endif  // !BECHAT_CORE_SERVER_CONTEXT_H_

@@ -10,7 +10,12 @@
 
 #include "bechat/core/server_context.h"
 
+// ServerContext::ServerContext(IoThreads& io_threads):
+//   io_threads_(io_threads) {}
+
 RequestResult ServerContext::HandleRequest(SessionPtr session,
-                                           TlvMessagePtr request) {}
+                                           TlvMessagePtr request) {
+  return {};
+}
 
 void ServerContext::Broadcast(TlvMessagePtr push) {}

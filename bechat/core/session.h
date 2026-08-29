@@ -9,9 +9,11 @@
 
 #include "bechat/tlv/tlv_message.h"
 
+class ServerContext;
+
 class Session : public std::enable_shared_from_this<Session> {
  public:
-  Session(asio::ip::tcp::socket socket);
+  Session(asio::ip::tcp::socket socket, ServerContext& context);
   ~Session();
 
   void Start();
@@ -29,6 +31,7 @@ class Session : public std::enable_shared_from_this<Session> {
 
  private:
   asio::ip::tcp::socket socket_;
+  ServerContext& server_context_;
 
   // 当出现错误或者异常时，置位 closing_
   std::atomic_bool closing_{false};

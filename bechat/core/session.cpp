@@ -2,10 +2,12 @@
 
 #include <endian.h>
 
+#include "bechat/core/server_context.h"
 #include "bechat/utils/logger.h"
 
-Session::Session(asio::ip::tcp::socket socket)
+Session::Session(asio::ip::tcp::socket socket, ServerContext& context)
     : socket_(std::move(socket)),
+      server_context_(context),
       read_strand_(asio::make_strand(socket_.get_executor())),
       write_strand_(asio::make_strand(socket_.get_executor())) {}
 

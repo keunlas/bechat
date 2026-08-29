@@ -16,9 +16,12 @@
 
 #include "bechat/utils/io_threads.h"
 
+class ServerContext;
+
 class Acceptor {
  public:
-  Acceptor(IoThreads& io_threads, const std::string& ip, uint16_t port);
+  Acceptor(IoThreads& io_threads, const std::string& ip, uint16_t port,
+           ServerContext& context);
 
  private:
   void do_accept();
@@ -26,6 +29,7 @@ class Acceptor {
  private:
   asio::ip::tcp::endpoint endpoint_;
   asio::ip::tcp::acceptor acceptor_;
+  ServerContext& server_context_;
 };
 
 #endif  // !BECHAT_CORE_ACCEPTOR_H_
