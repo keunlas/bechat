@@ -16,5 +16,9 @@ target_sources(bechat PRIVATE
   tlv/tlv_codec.cpp
 )
 
+target_sources(bechat PRIVATE
+  proto/dispatcher.cpp
+)
+
 target_include_directories(bechat PRIVATE ${PROJECT_SOURCE_DIR})
 
