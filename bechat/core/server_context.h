@@ -28,8 +28,9 @@ class ServerContext {
   RequestResult HandleRequest(SessionPtr session, TlvMessagePtr request);
 
   /// @brief 向所有在线的 Session 推送一条消息
-  /// @param push
-  void Broadcast(TlvMessagePtr push);
+  /// @param session std::shared_ptr<Session>
+  /// @param push std::shared_ptr<TlvMessage>
+  void Broadcast(SessionPtr session, TlvMessagePtr push);
 
   //  private:
   //   IoThreads& io_threads_;

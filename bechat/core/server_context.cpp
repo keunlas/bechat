@@ -15,7 +15,12 @@
 
 RequestResult ServerContext::HandleRequest(SessionPtr session,
                                            TlvMessagePtr request) {
-  return {};
+  // [TODO]
+  RequestResult res;
+  res.to_self_response.push_back(request);
+  return res;
 }
 
-void ServerContext::Broadcast(TlvMessagePtr push) {}
+void ServerContext::Broadcast(SessionPtr session, TlvMessagePtr push) {
+  // [TODO]
+}
