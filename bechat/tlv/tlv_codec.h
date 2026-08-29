@@ -15,6 +15,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -28,7 +29,7 @@
 
 class TlvCodec {
  public:
-  static uint32_t PeekRequestId(const std::string& value);
+  static std::optional<uint32_t> PeekRequestId(const std::string& value);
 
   static std::string_view PayloadAfterRequestId(const std::string& value);
 
