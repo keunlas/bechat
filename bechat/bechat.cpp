@@ -6,7 +6,7 @@
 int main(int argc, char* argv[]) {
   try {
     IoThreads io_threads(2);
-    ServerContext server_context;
+    ServerContext server_context(io_threads);
     Acceptor acceptor(io_threads, "127.0.0.1", 35565, server_context);
     io_threads.Run();
   } catch (std::exception& e) {

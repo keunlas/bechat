@@ -102,11 +102,11 @@ void Session::on_read_completed() {
   auto request_msg = std::make_shared<TlvMessage>(input_msg_);
   asio::post(write_strand_, [this, self, request_msg]() {
     if (closing_) return;
-    // 获取请求的处理结果
+    // 通过 server_context_ 处理请求并获取结果
     auto request_result = server_context_.HandleRequest(self, request_msg);
     if (closing_) return;
 
-    // 添加相应消息到写队列
+    // 添加响应消息到写队列
     write_queue_.push_range(
         request_result.to_self_response |
         std::views::transform(&TlvMessage::SerializeToString));
