@@ -42,6 +42,20 @@ class MessageTag {
       UserJoined = 0x8102,  // 用户加入聊天室推送
     };
   };
+
+ public:
+  inline static bool IsValidReqTag(Req::Type tag) {
+    switch (tag) {
+      case Req::Register:
+      case Req::Login:
+      case Req::GetHistory:
+      case Req::GetOnlineUsers:
+      case Req::SendMessage:
+        return true;
+      default:
+        return false;
+    }
+  }
 };
 
 #endif  // !BECHAT_TLV_MESSAGE_TAG_H_
