@@ -14,10 +14,7 @@ ServerContext::ServerContext(IoThreads& io_threads) : io_threads_(io_threads) {}
 
 RequestResult ServerContext::HandleRequest(SessionPtr session,
                                            TlvMessagePtr request) {
-  // [TODO]
-  RequestResult res;
-  res.to_self_response.push_back(request);
-  return res;
+  return dispatcher_.Dispatch(session, request);
 }
 
 void ServerContext::Broadcast(SessionPtr session, TlvMessagePtr push) {

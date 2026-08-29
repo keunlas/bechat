@@ -12,7 +12,8 @@
 #define BECHAT_CORE_SERVER_CONTEXT_H_
 
 #include "bechat/core/session.h"
-#include "bechat/proto/request_result.h"
+#include "bechat/proto/dispatcher.h"
+#include "bechat/proto/request.h"
 #include "bechat/utils/io_threads.h"
 #include "bechat/utils/types.h"
 
@@ -34,6 +35,7 @@ class ServerContext {
 
  private:
   IoThreads& io_threads_;
+  Dispatcher dispatcher_;
 };
 
 #endif  // !BECHAT_CORE_SERVER_CONTEXT_H_
