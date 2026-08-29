@@ -10,14 +10,16 @@
 
 #include "bechat/tlv/tlv_codec.h"
 
-#include <endian.h>
-
+#include <bit>
 #include <cassert>
 
 uint32_t TlvCodec::PeekRequestId(const std::string& value) {
   assert(value.size() >= sizeof(uint32_t));
   uint32_t request_id_be = *reinterpret_cast<const uint32_t*>(value.data());
-  return be32toh(request_id_be);
+  if (std::endian::native == std::endian::big) {
+    return request_id_be;
+  }
+  return std::byteswap(request_id_be);
 }
 
 std::string_view TlvCodec::PayloadAfterRequestId(const std::string& value) {

@@ -10,8 +10,6 @@
 
 #include "bechat/tlv/tlv_message.h"
 
-#include <endian.h>
-
 std::string TlvMessage::SerializeToString() {
   std::string result{};
   result.reserve(value_.size() + sizeof(TagT) + sizeof(LengthT));

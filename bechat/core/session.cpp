@@ -1,6 +1,6 @@
 #include "bechat/core/session.h"
 
-#include <endian.h>
+#include <bit>
 
 #include "bechat/core/server_context.h"
 #include "bechat/utils/logger.h"
@@ -28,16 +28,18 @@ void Session::read_tag() {
   auto self(shared_from_this());
   asio::async_read(
       socket_, asio::buffer(input_msg_.mutable_tag(), sizeof(TlvMessage::TagT)),
-      asio::bind_executor(read_strand_,
-                          [this, self](std::error_code ec, std::size_t) {
-                            if (closing_) return;
-                            if (!ec) {
-                              input_msg_.set_tag(be16toh(input_msg_.tag()));
-                              read_length();
-                            } else {
-                              handle_error(ec);
-                            }
-                          }));
+      asio::bind_executor(
+          read_strand_, [this, self](std::error_code ec, std::size_t) {
+            if (closing_) return;
+            if (!ec) {
+              if (std::endian::native != std::endian::big) {
+                input_msg_.set_tag(std::byteswap(input_msg_.tag()));
+              }
+              read_length();
+            } else {
+              handle_error(ec);
+            }
+          }));
 }
 
 void Session::read_length() {
@@ -49,7 +51,9 @@ void Session::read_length() {
                           [this, self](std::error_code ec, std::size_t) {
                             if (closing_) return;
                             if (!ec) {
-                              msg_value_len_ = be16toh(msg_value_len_);
+                              if (std::endian::native != std::endian::big) {
+                                msg_value_len_ = std::byteswap(msg_value_len_);
+                              }
                               read_value(msg_value_len_);
                             } else {
                               handle_error(ec);
