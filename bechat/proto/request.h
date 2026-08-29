@@ -1,20 +1,28 @@
 /**
- * @file request_result.h
+ * @file request.h
  * @author Keunlas
- * @brief 请求的解析结果
- * @date 2026-08-29
+ * @brief 请求相关类
+ * @date 2026-08-30
  *
  * @copyright Copyright (c) 2026
  *
  */
 
-#ifndef BECHAT_PROTO_REQUEST_RESULT_H_
-#define BECHAT_PROTO_REQUEST_RESULT_H_
+#ifndef BECHAT_PROTO_REQUEST_H_
+#define BECHAT_PROTO_REQUEST_H_
 
 #include <memory>
+#include <string_view>
 #include <vector>
 
+#include "bechat/tlv/message_tag.h"
 #include "bechat/utils/types.h"
+
+struct DecodedRequest {
+  MessageTag::Req::Type tag;
+  uint32_t request_id;
+  std::string_view payload;  // 去掉 request_id 之后的剩余 value
+};
 
 struct RequestResult {
   /**
@@ -24,4 +32,4 @@ struct RequestResult {
   std::vector<TlvMessagePtr> to_broadcast_push;  // 广播给所有在线连接
 };
 
-#endif  // !BECHAT_PROTO_REQUEST_RESULT_H_
+#endif  // !BECHAT_PROTO_REQUEST_H_
