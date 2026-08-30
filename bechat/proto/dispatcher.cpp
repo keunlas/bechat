@@ -26,8 +26,11 @@ RequestResult Dispatcher::Dispatch(SessionPtr session, TlvMessagePtr request) {
   decoded.request_id = request_id.value();
   decoded.tag = tag;
 
-  // [TODO] 这里暂时原路返回，后续处理上面的 decoded
+  // [TODO]
   RequestResult res;
-  res.to_self_response.push_back(request);
+  res.to_self_response.emplace_back(
+      std::make_shared<TlvMessage>(std::move(TlvCodec::MakeResponse(
+          MessageTag::ReqTag2Resp(decoded.tag), decoded.request_id,
+          StatusCode::Ok, "'OK message for test'"))));
   return res;
 }

@@ -56,6 +56,23 @@ class MessageTag {
         return false;
     }
   }
+
+  inline static Resp::Type ReqTag2Resp(Req::Type tag) {
+    switch (tag) {
+      case Req::Register:
+        return Resp::Register;
+      case Req::Login:
+        return Resp::Login;
+      case Req::GetHistory:
+        return Resp::GetHistory;
+      case Req::GetOnlineUsers:
+        return Resp::GetOnlineUsers;
+      case Req::SendMessage:
+        return Resp::SendMessage;
+      default:
+        return Resp::Error;
+    }
+  }
 };
 
 #endif  // !BECHAT_TLV_MESSAGE_TAG_H_
