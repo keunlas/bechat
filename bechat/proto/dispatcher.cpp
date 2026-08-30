@@ -13,20 +13,31 @@
 RequestResult Dispatcher::Dispatch(SessionPtr session, TlvMessagePtr request) {
   auto tag = static_cast<MessageTag::Req::Type>(request->tag());
   auto request_id = TlvCodec::PeekRequestId(request->value());
-  if (!MessageTag::IsValidReqTag(tag) || !request_id.has_value()) {
-    // tag 必须合法且 request_id 必须存在
+
+  // Tag 不对则返回 StatusCode::MalformedPacket
+  if (!MessageTag::IsValidReqTag(tag)) {
     RequestResult res;
-    res.to_self_response.emplace_back(std::make_shared<TlvMessage>(
-        std::move(TlvCodec::MakeError(0, tag, StatusCode::MalformedPacket))));
+    res.to_self_response.emplace_back(std::make_shared<TlvMessage>(std::move(
+        TlvCodec::MakeError(request_id.has_value() ? request_id.value() : 0,
+                            tag, StatusCode::MalformedPacket))));
     return res;
   }
 
+  // RequestId 不存在则返回 StatusCode::InvalidParameter
+  if (!request_id.has_value()) {
+    RequestResult res;
+    res.to_self_response.emplace_back(std::make_shared<TlvMessage>(
+        std::move(TlvCodec::MakeError(0, tag, StatusCode::InvalidParameter))));
+    return res;
+  }
+
+  // decoded 就是已经单独提取出 tag, request_id 和 payload 的请求
   DecodedRequest decoded;
   decoded.payload = TlvCodec::PayloadAfterRequestId(request->value());
   decoded.request_id = request_id.value();
   decoded.tag = tag;
 
-  // [TODO]
+  // [TODO] 处理 decoded
   RequestResult res;
   res.to_self_response.emplace_back(
       std::make_shared<TlvMessage>(std::move(TlvCodec::MakeResponse(
