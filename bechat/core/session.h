@@ -8,6 +8,7 @@
 #include <queue>
 
 #include "bechat/tlv/tlv_message.h"
+#include "bechat/utils/types.h"
 
 class ServerContext;
 
@@ -17,6 +18,12 @@ class Session : public std::enable_shared_from_this<Session> {
   ~Session();
 
   void Start();
+
+  // 将 msg 添加入写队列
+  void Send(TlvMessagePtr msg);
+
+  // 批量地将 msgs 添加入写队列
+  void Send(std::vector<TlvMessagePtr> msgs);
 
  private:
   void read_tag();

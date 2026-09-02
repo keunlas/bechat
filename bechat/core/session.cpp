@@ -24,6 +24,26 @@ void Session::Start() {
   });
 }
 
+void Session::Send(TlvMessagePtr msg) {
+  auto self(shared_from_this());
+  asio::post(write_strand_, [this, self, msg]() {
+    if (closing_) return;
+    write_queue_.push(std::move(msg->SerializeToString()));
+    if (!writing_) start_writing();
+  });
+}
+
+void Session::Send(std::vector<TlvMessagePtr> msgs) {
+  auto self(shared_from_this());
+  asio::post(write_strand_, [this, self, msgs = std::move(msgs)]() {
+    if (closing_) return;
+    for (auto&& msg : msgs) {
+      write_queue_.push(std::move(msg->SerializeToString()));
+    }
+    if (!writing_) start_writing();
+  });
+}
+
 void Session::read_tag() {
   assert(read_strand_.running_in_this_thread());
   auto self(shared_from_this());
@@ -93,31 +113,19 @@ void Session::on_read_completed() {
 
   /**
    * 这里已经完整的接收到了一条 message 到 input_msg_ 中，
-   * 首先需要把当前的 input_msg_ 拷贝一份出来，
-   * 然后在 write_strand_ 中进行该 message 的处理，
-   * 处理完成后将序列化好的响应字符串添加到 write_queue_ 中。
+   * 首先需要把当前的 input_msg_ 拷贝一份出来。
    */
 
   auto self(shared_from_this());
   auto request_msg = std::make_shared<TlvMessage>(input_msg_);
-  asio::post(write_strand_, [this, self, request_msg]() {
-    if (closing_) return;
-    // 通过 server_context_ 处理请求并获取结果
-    auto request_result = server_context_.HandleRequest(self, request_msg);
-    if (closing_) return;
 
-    // 添加响应消息到写队列
-    write_queue_.push_range(
-        request_result.to_self_response |
-        std::views::transform(&TlvMessage::SerializeToString));
+  /**
+   * 这里不再直接对 request_msg 进行处理，
+   * 而是把 request_msg 和 self 交给 server_context_ 进行处理，
+   * server_context_ 会调用 Send 接口发送处理好的请求。
+   */
 
-    // 通过 server_context_ 进行推送消息广播
-    for (auto&& push : request_result.to_broadcast_push) {
-      server_context_.Broadcast(self, std::move(push));
-    }
-
-    if (!writing_) start_writing();
-  });
+  server_context_.HandleRequest(self, request_msg); // 异步接口
 }
 
 void Session::start_writing() {

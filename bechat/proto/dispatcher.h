@@ -19,7 +19,7 @@
 #include "bechat/tlv/tlv_codec.h"
 #include "bechat/utils/types.h"
 
-struct Dispatcher {
+[[deprecated]] struct Dispatcher {
  public:
   RequestResult Dispatch(SessionPtr session, TlvMessagePtr request);
 };

@@ -17,7 +17,7 @@ target_sources(bechat PRIVATE
 )
 
 target_sources(bechat PRIVATE
-  proto/dispatcher.cpp
+  # proto/dispatcher.cpp
 )
 
 target_include_directories(bechat PRIVATE ${PROJECT_SOURCE_DIR})
