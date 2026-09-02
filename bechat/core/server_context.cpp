@@ -10,6 +10,7 @@
 
 #include "bechat/core/server_context.h"
 
+#include "bechat/proto/request.h"
 #include "bechat/tlv/tlv_codec.h"
 
 ServerContext::ServerContext(IoThreads& io_threads) : io_threads_(io_threads) {}

@@ -12,7 +12,6 @@
 #define BECHAT_CORE_SERVER_CONTEXT_H_
 
 #include "bechat/core/session.h"
-#include "bechat/proto/request.h"
 #include "bechat/utils/io_threads.h"
 #include "bechat/utils/types.h"
 
