@@ -19,28 +19,46 @@ void Session::Start() {
 
   auto self(shared_from_this());
   asio::post(read_strand_, [this, self]() {
-    if (closing_) return;
-    read_tag();
+    try {
+      if (closing_) return;
+      read_tag();
+    } catch (const std::exception& e) {
+      ERROR("Session {} failed to start: {}", (void*)this, e.what());
+    } catch (...) {
+      ERROR("Session {} failed to start: unknow error", (void*)this);
+    }
   });
 }
 
 void Session::Send(TlvMessagePtr msg) {
   auto self(shared_from_this());
   asio::post(write_strand_, [this, self, msg]() {
-    if (closing_) return;
-    write_queue_.push(std::move(msg->SerializeToString()));
-    if (!writing_) start_writing();
+    try {
+      if (closing_) return;
+      write_queue_.push(std::move(msg->SerializeToString()));
+      if (!writing_) start_writing();
+    } catch (const std::exception& e) {
+      ERROR("Session {} failed to send msg: {}", (void*)this, e.what());
+    } catch (...) {
+      ERROR("Session {} failed to send msg: unknow error", (void*)this);
+    }
   });
 }
 
 void Session::Send(std::vector<TlvMessagePtr> msgs) {
   auto self(shared_from_this());
   asio::post(write_strand_, [this, self, msgs = std::move(msgs)]() {
-    if (closing_) return;
-    for (auto&& msg : msgs) {
-      write_queue_.push(std::move(msg->SerializeToString()));
+    try {
+      if (closing_) return;
+      for (auto&& msg : msgs) {
+        write_queue_.push(std::move(msg->SerializeToString()));
+      }
+      if (!writing_) start_writing();
+    } catch (const std::exception& e) {
+      ERROR("Session {} failed to send msgs: {}", (void*)this, e.what());
+    } catch (...) {
+      ERROR("Session {} failed to send msgs: unknow error", (void*)this);
     }
-    if (!writing_) start_writing();
   });
 }
 
@@ -125,7 +143,7 @@ void Session::on_read_completed() {
    * server_context_ 会调用 Send 接口发送处理好的请求。
    */
 
-  server_context_.HandleRequest(self, request_msg); // 异步接口
+  server_context_.HandleRequest(self, request_msg);  // 异步接口
 }
 
 void Session::start_writing() {
