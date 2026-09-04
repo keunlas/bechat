@@ -18,5 +18,6 @@ TlvCodec 及其在 ServerContext 中被使用的部分需要重新规划。
 [todo]
 TlvProto 需要重新审核。
 
-
+[todo]
+RequestMessage 类继承 TlvMessage 并且无法主动进行构造只能通过 TlvMessagePtr 多态的使用。
 

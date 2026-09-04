@@ -15,14 +15,15 @@
 
 struct StatusCode {
   enum Type : uint16_t {
-    Ok = 0x0000,                     // 成功
-    NotLoggedIn = 0x0001,            // 未登录
-    MalformedPacket = 0x0002,        // 协议错误
-    InvalidParameter = 0x0003,       // 参数错误
-    UsernameAlreadyExists = 0x0004,  // 用户名已存在
-    InvalidCredentials = 0x0005,     // 凭据错误
-    InvalidState = 0x0006,           // 状态错误
-    InternalError = 0xFFFF,          // 服务端内部错误
+    Ok = 0x0000,             // 成功
+    NotLoggedIn = 0x0001,    // 未登录
+    MalformedPacket,         // 协议错误
+    NoneRequestId,           // 请求 ID 错误
+    InvalidParameter,        // 参数错误
+    UsernameAlreadyExists,   // 用户名已存在
+    InvalidCredentials,      // 凭据错误
+    InvalidState,            // 状态错误
+    InternalError = 0xFFFF,  // 服务端内部错误
   };
 };
 

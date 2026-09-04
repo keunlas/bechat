@@ -19,7 +19,7 @@
 #include "bechat/utils/types.h"
 
 struct DecodedRequest {
-  MessageTag::Req::Type tag;
+  uint16_t tag;
   uint32_t request_id;
   std::string_view payload;  // 去掉 request_id 之后的剩余 value
 };

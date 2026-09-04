@@ -21,4 +21,8 @@ class TlvMessage;
 
 using TlvMessagePtr = std::shared_ptr<TlvMessage>;
 
+class RequestMessage;
+
+using RequestMessagePtr = std::shared_ptr<RequestMessage>;
+
 #endif  // !BECHAT_UTILS_TYPES_H_

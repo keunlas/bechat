@@ -44,7 +44,7 @@ class MessageTag {
   };
 
  public:
-  inline static bool IsValidReqTag(Req::Type tag) {
+  inline static bool IsValidReqTag(uint16_t tag) {
     switch (tag) {
       case Req::Register:
       case Req::Login:
@@ -57,21 +57,31 @@ class MessageTag {
     }
   }
 
-  inline static Resp::Type ReqTag2Resp(Req::Type tag) {
+  inline static bool IsValidRespTag(uint16_t tag) {
     switch (tag) {
-      case Req::Register:
-        return Resp::Register;
-      case Req::Login:
-        return Resp::Login;
-      case Req::GetHistory:
-        return Resp::GetHistory;
-      case Req::GetOnlineUsers:
-        return Resp::GetOnlineUsers;
-      case Req::SendMessage:
-        return Resp::SendMessage;
+      case Resp::Register:
+      case Resp::Login:
+      case Resp::GetHistory:
+      case Resp::GetOnlineUsers:
+      case Resp::SendMessage:
+        return true;
       default:
-        return Resp::Error;
+        return false;
     }
+  }
+
+  inline static bool IsValidPushTag(uint16_t tag) {
+    switch (tag) {
+      case Push::NewMessage:
+      case Push::UserJoined:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  inline static uint16_t CorrespondingConvert(uint16_t tag) {
+    return tag ^ 0x8000;
   }
 };
 

@@ -13,20 +13,6 @@
 #include <bit>
 #include <cassert>
 
-std::optional<uint32_t> TlvCodec::PeekRequestId(const std::string& value) {
-  if (value.size() < sizeof(uint32_t)) return std::nullopt;
-  uint32_t request_id_be = *reinterpret_cast<const uint32_t*>(value.data());
-  if (std::endian::native == std::endian::big) {
-    return request_id_be;
-  }
-  return std::byteswap(request_id_be);
-}
-
-std::string_view TlvCodec::PayloadAfterRequestId(const std::string& value) {
-  if (value.size() <= sizeof(uint32_t)) return {};
-  return std::string_view(value).substr(sizeof(uint32_t));
-}
-
 TlvMessage TlvCodec::MakeResponse(MessageTag::Resp::Type resp_tag,
                                   uint32_t request_id, StatusCode::Type status,
                                   std::string_view body) {

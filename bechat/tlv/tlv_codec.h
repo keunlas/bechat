@@ -29,10 +29,6 @@
 
 class TlvCodec {
  public:
-  static std::optional<uint32_t> PeekRequestId(const std::string& value);
-
-  static std::string_view PayloadAfterRequestId(const std::string& value);
-
   static TlvMessage MakeResponse(MessageTag::Resp::Type resp_tag,
                                  uint32_t request_id, StatusCode::Type status,
                                  std::string_view body = {});

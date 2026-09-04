@@ -4,6 +4,7 @@
 #include <ranges>
 
 #include "bechat/core/server_context.h"
+#include "bechat/proto/request_message.h"
 #include "bechat/utils/logger.h"
 
 Session::Session(asio::ip::tcp::socket socket, ServerContext& context)
@@ -66,13 +67,13 @@ void Session::read_tag() {
   assert(read_strand_.running_in_this_thread());
   auto self(shared_from_this());
   asio::async_read(
-      socket_, asio::buffer(input_msg_.mutable_tag(), sizeof(TlvMessage::TagT)),
+      socket_, asio::buffer(&current_msg_tag_, sizeof(current_msg_tag_)),
       asio::bind_executor(
           read_strand_, [this, self](std::error_code ec, std::size_t) {
             if (closing_) return;
             if (!ec) {
               if (std::endian::native != std::endian::big) {
-                input_msg_.set_tag(std::byteswap(input_msg_.tag()));
+                current_msg_tag_ = std::byteswap(current_msg_tag_);
               }
               read_length();
             } else {
@@ -85,38 +86,37 @@ void Session::read_length() {
   assert(read_strand_.running_in_this_thread());
   auto self(shared_from_this());
   asio::async_read(
-      socket_, asio::buffer(&msg_value_len_, sizeof(TlvMessage::LengthT)),
-      asio::bind_executor(read_strand_,
-                          [this, self](std::error_code ec, std::size_t) {
-                            if (closing_) return;
-                            if (!ec) {
-                              if (std::endian::native != std::endian::big) {
-                                msg_value_len_ = std::byteswap(msg_value_len_);
-                              }
-                              read_value(msg_value_len_);
-                            } else {
-                              handle_error(ec);
-                            }
-                          }));
+      socket_, asio::buffer(&current_msg_length_, sizeof(current_msg_length_)),
+      asio::bind_executor(
+          read_strand_, [this, self](std::error_code ec, std::size_t) {
+            if (closing_) return;
+            if (!ec) {
+              if (std::endian::native != std::endian::big) {
+                current_msg_length_ = std::byteswap(current_msg_length_);
+              }
+              read_value(current_msg_length_);
+            } else {
+              handle_error(ec);
+            }
+          }));
 }
 
 void Session::read_value(uint16_t len) {
   assert(read_strand_.running_in_this_thread());
-  assert(msg_value_len_ == len);
+  assert(current_msg_length_ == len);
   (void)len;
   auto self(shared_from_this());
-  input_msg_.mutable_value()->resize(msg_value_len_);
+  current_msg_value_.resize(len);
   asio::async_read(
       socket_,
-      asio::buffer(input_msg_.mutable_value()->data(),
-                   input_msg_.mutable_value()->size()),
+      asio::buffer(current_msg_value_.data(), current_msg_value_.size()),
       asio::bind_executor(read_strand_, [this, self](std::error_code ec,
                                                      std::size_t) {
         if (closing_) return;
         if (!ec) {
           TRACE("Session {} read a message: [0x{:x}][{}][{} bytes of value]",
-                (void*)this, input_msg_.tag(), input_msg_.length(),
-                input_msg_.value().size());
+                (void*)this, current_msg_tag_, current_msg_length_,
+                current_msg_value_.size());
 
           on_read_completed();
           read_tag();  // TCP 全双工通信，读写可同时进行
@@ -130,12 +130,13 @@ void Session::on_read_completed() {
   assert(read_strand_.running_in_this_thread());
 
   /**
-   * 这里已经完整的接收到了一条 message 到 input_msg_ 中，
-   * 首先需要把当前的 input_msg_ 拷贝一份出来。
+   * 这里已经完整的接收到了一条 message 到 current_msg_* 中，
+   * 首先需要把当前的 message 拷贝一份出来。
    */
 
   auto self(shared_from_this());
-  auto request_msg = std::make_shared<TlvMessage>(input_msg_);
+  auto request_msg =
+      std::make_shared<RequestMessage>(current_msg_tag_, current_msg_value_);
 
   /**
    * 这里不再直接对 request_msg 进行处理，

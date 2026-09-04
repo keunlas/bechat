@@ -7,7 +7,7 @@
 #include <memory>
 #include <queue>
 
-#include "bechat/tlv/tlv_message.h"
+
 #include "bechat/utils/types.h"
 
 class ServerContext;
@@ -46,8 +46,9 @@ class Session : public std::enable_shared_from_this<Session> {
   // 读 strand 用来进行读操作
   asio::strand<asio::any_io_executor> read_strand_;
   // 只在 read_strand_ 中进行修改
-  TlvMessage input_msg_{};
-  TlvMessage::LengthT msg_value_len_{};
+  uint16_t current_msg_tag_{};
+  uint16_t current_msg_length_{};
+  std::string current_msg_value_{};
 
   // 写 strand 用来进行写操作
   asio::strand<asio::any_io_executor> write_strand_;

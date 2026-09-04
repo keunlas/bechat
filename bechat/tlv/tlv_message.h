@@ -22,6 +22,16 @@ class TlvMessage {
   using ValueT = std::string;
 
  public:
+  TlvMessage() = default;
+  TlvMessage(TlvMessage&&) = default;
+  TlvMessage& operator=(TlvMessage&&) = default;
+  TlvMessage(const TlvMessage&) = default;
+  TlvMessage& operator=(const TlvMessage&) = default;
+  virtual ~TlvMessage() = default;
+
+  TlvMessage(TagT tag, ValueT value) : tag_(tag), value_(std::move(value)) {}
+
+ public:
   inline TagT tag() const { return tag_; }
 
   inline TagT* mutable_tag() { return &tag_; }

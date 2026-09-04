@@ -23,7 +23,7 @@ class ServerContext {
   /// @brief 异步地处理 session 收到的 request
   /// @param session std::shared_ptr<Session>
   /// @param request std::shared_ptr<TlvMessage>
-  void HandleRequest(SessionPtr session, TlvMessagePtr request);
+  void HandleRequest(SessionPtr session, RequestMessagePtr request);
 
   /// @brief 异步地向所有在线的 Session 推送一条消息
   /// @param session std::shared_ptr<Session> 触发广播推送的 session
