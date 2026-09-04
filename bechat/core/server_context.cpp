@@ -30,9 +30,8 @@ void ServerContext::HandleRequest(SessionPtr session,
 
       // RequestId 不存在则返回 StatusCode::InvalidRequestId
       if (request->request_id() == 0U) {
-        session->Send(std::make_shared<TlvMessage>(
-            std::move(TlvCodec::MakeError(request->request_id(), request->tag(),
-                                          StatusCode::InvalidRequestId))));
+        session->Send(TlvCodec::MakeError(request->request_id(), request->tag(),
+                                          StatusCode::InvalidRequestId));
         return;
       }
 
