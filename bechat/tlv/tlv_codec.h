@@ -26,20 +26,22 @@
 #include "bechat/tlv/tlv_message.h"
 #include "bechat/tlv/tlv_value_reader.h"
 #include "bechat/tlv/tlv_value_writer.h"
+#include "bechat/utils/types.h"
 
 class TlvCodec {
  public:
-  static TlvMessage MakeResponse(MessageTag::Resp::Type resp_tag,
-                                 uint32_t request_id, StatusCode::Type status,
-                                 std::string_view body = {});
+  static TlvMessagePtr MakeResponse(MessageTag::Resp::Type resp_tag,
+                                    uint32_t request_id,
+                                    StatusCode::Type status,
+                                    std::string_view body = {});
 
  public:
-  static TlvMessage MakePush(MessageTag::Push::Type push_tag,
-                             std::string_view body = {});
+  static TlvMessagePtr MakePush(MessageTag::Push::Type push_tag,
+                                std::string_view body = {});
 
  public:
-  static TlvMessage MakeError(uint32_t request_id, uint16_t request_tag,
-                              StatusCode::Type status);
+  static TlvMessagePtr MakeError(uint32_t request_id, uint16_t request_tag,
+                                 StatusCode::Type status);
 };
 
 #endif  // !BECHAT_TLV_TLV_CODEC_H_

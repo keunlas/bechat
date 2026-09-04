@@ -27,18 +27,19 @@ class RequestMessage : public TlvMessage {
  public:
   /// @brief 获取 Request ID
   /// @return 如果 Request ID 存在则返回它的值，否则返回 0
-  uint32_t request_id() const;
-
-  // payload
+  inline uint32_t request_id() const { return request_id_; };
 
   /// @brief 获取载荷
   /// @return 排除掉 Request ID 后的载荷
   std::string_view payload() const;
 
- public:
+ private:
   /// @brief 尝试获取 Request ID
   /// @return 如果 Request ID 存在则返回它的 opt 值，否则返回 std::nullopt
-  std::optional<uint32_t> PeekRequestId() const;
+  std::optional<uint32_t> peek_request_id() const;
+
+ private:
+  uint32_t request_id_;
 };
 
 #endif  // !BECHAT_PROTO_REQUEST_MESSAGE_H_

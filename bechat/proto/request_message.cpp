@@ -11,12 +11,13 @@
 #include "bechat/proto/request_message.h"
 
 RequestMessage::RequestMessage(uint16_t tag, std::string value)
-    : TlvMessage(tag, std::move(value)) {}
-
-/// @brief 获取 Request ID
-uint32_t RequestMessage::request_id() const {
-  auto id = PeekRequestId();
-  return id.has_value() ? id.value() : 0;
+    : TlvMessage(tag, std::move(value)) {
+  auto peek_id = peek_request_id();
+  if (peek_id.has_value()) {
+    request_id_ = peek_id.value();
+  } else {
+    request_id_ = 0;
+  }
 }
 
 /// @brief 获取载荷
@@ -26,7 +27,7 @@ std::string_view RequestMessage::payload() const {
 }
 
 /// @brief 尝试获取 Request ID
-std::optional<uint32_t> RequestMessage::PeekRequestId() const {
+std::optional<uint32_t> RequestMessage::peek_request_id() const {
   if (length() < sizeof(uint32_t)) return std::nullopt;
   uint32_t request_id = *reinterpret_cast<const uint32_t*>(value().data());
   if (std::endian::native == std::endian::big) {

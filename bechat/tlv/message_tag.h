@@ -17,29 +17,29 @@ class MessageTag {
  public:
   struct Req {
     enum Type : uint16_t {
-      Register = 0x0001,        // 用户注册
-      Login = 0x0002,           // 用户登录
-      GetHistory = 0x0003,      // 获取历史聊天消息
-      GetOnlineUsers = 0x0004,  // 获取在线用户列表
-      SendMessage = 0x0005,     // 发送聊天消息
+      Register = 0x0001,  // 用户注册
+      Login,              // 用户登录
+      GetHistory,         // 获取历史聊天消息
+      GetOnlineUsers,     // 获取在线用户列表
+      SendMessage,        // 发送聊天消息
     };
   };
 
   struct Resp {
     enum Type : uint16_t {
-      Error = 0x8000,           // 通用错误响应
-      Register = 0x8001,        // 注册响应
-      Login = 0x8002,           // 登录响应
-      GetHistory = 0x8003,      // 历史消息响应
-      GetOnlineUsers = 0x8004,  // 在线用户响应
-      SendMessage = 0x8005,     // 发送消息响应
+      Error = 0x8000,     // 通用错误响应
+      Register = 0x8001,  // 注册响应
+      Login,              // 登录响应
+      GetHistory,         // 历史消息响应
+      GetOnlineUsers,     // 在线用户响应
+      SendMessage,        // 发送消息响应
     };
   };
 
   struct Push {
     enum Type : uint16_t {
       NewMessage = 0x8101,  // 新聊天消息推送
-      UserJoined = 0x8102,  // 用户加入聊天室推送
+      UserJoined,           // 用户加入聊天室推送
     };
   };
 
@@ -80,6 +80,7 @@ class MessageTag {
     }
   }
 
+  /// @brief 相对应的请求和响应的 Tag 互转
   inline static uint16_t CorrespondingConvert(uint16_t tag) {
     return tag ^ 0x8000;
   }
