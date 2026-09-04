@@ -35,7 +35,14 @@ void ServerContext::HandleRequest(SessionPtr session,
         return;
       }
 
-      // [TODO] 解析并处理 request 的业务逻辑
+      /**
+       * [TODO] 解析并处理 request 的业务逻辑
+       *
+       * 暂定逻辑：
+       *    1. RequestCodec 进行 request 的解析，分析出 Req 类型。
+       *    2. 并且 RequestCodec 根据 Req 类型解析 request 的各项参数。
+       *    3. 把解析好的东西传递给 ServerContext 中的和服务有关的成员变量去处理。
+       */
       session->Send(TlvCodec::MakeResponse(
           static_cast<MessageTag::Resp::Type>(
               MessageTag::CorrespondingConvert(request->tag())),

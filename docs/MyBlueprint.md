@@ -1,23 +1,17 @@
-# 目前逻辑的一些改造草稿
+# 目前逻辑的一些待改造项
 
-[ok]
-Session 需要提供一个 Send 接口，
-用来在 write_strand_ 上面去把 TlvMessagePtr 发送出去。
-on_read_completed 只负责把接受到的消息传输给 ServerContext。
+## 报文接收超时机制
 
-[todo]
-Dispathcer 不作为单独的类而是作为函数提供，
-应该放入 ServerContext 中。
-并且提供额外的 RequestCodec 类去解析请求，
-解析好的请求交给 Dispathcer 函数进行解析，
-该函数会将请求分配给 ServerContext 中持有的 ChatService 对象。
+Session 类中的 read_tag read_length read_value 要添加超时机制，
+当发生超时时，Session 将会直接断开连接。
 
-[todo]
-TlvCodec 及其在 ServerContext 中被使用的部分需要重新规划。
+## 设计 RequestCodec 及其相关逻辑
 
-[todo]
-TlvProto 需要重新审核。
+目前还需要设计 RequestCodec 解析的返回值以怎样的形式返回，
+重点是如何方便且高效的统一返回值。
 
-[todo]
-RequestMessage 类继承 TlvMessage 并且无法主动进行构造只能通过 TlvMessagePtr 多态的使用。
+
+
+
+
 
