@@ -10,16 +10,22 @@
 
 #include "bechat/tlv/tlv_message.h"
 
+#include <bit>
+
 std::string TlvMessage::SerializeToString() {
   std::string result{};
   result.reserve(value_.size() + sizeof(TagT) + sizeof(LengthT));
 
-  auto tag = htobe16(tag_);
+  auto tag = tag_;
+  auto length = static_cast<LengthT>(value_.length());
+
+  if (std::endian::native != std::endian::big) {
+    tag = std::byteswap(tag);
+    length = std::byteswap(length);
+  }
+
   result.append(reinterpret_cast<char*>(&tag), sizeof(tag));
-
-  auto length = htobe16(static_cast<LengthT>(value_.length()));
   result.append(reinterpret_cast<char*>(&length), sizeof(length));
-
   result.append(value_);
 
   return result;
