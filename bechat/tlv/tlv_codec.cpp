@@ -25,10 +25,18 @@ TlvMessage TlvCodec::MakeResponse(MessageTag::Resp::Type resp_tag,
   ValueWriter writer(value);
   writer.WriteInt<uint32_t>(request_id);
   writer.WriteInt<uint16_t>(static_cast<uint16_t>(status));
-  writer.WriteBytes<const char>(body);
+  writer.WriteString(body);
 
   response.set_value(value);
   return response;
+}
+
+TlvMessage TlvCodec::MakePush(MessageTag::Push::Type push_tag,
+                              std::string_view body) {
+  TlvMessage push;
+  push.set_tag(static_cast<uint16_t>(push_tag));
+  push.set_value(std::move(std::string(body)));
+  return push;
 }
 
 TlvMessage TlvCodec::MakeError(uint32_t request_id, uint16_t request_tag,
@@ -46,12 +54,4 @@ TlvMessage TlvCodec::MakeError(uint32_t request_id, uint16_t request_tag,
 
   error.set_value(value);
   return error;
-}
-
-TlvMessage TlvCodec::MakePush(MessageTag::Push::Type push_tag,
-                              std::string_view body) {
-  TlvMessage push;
-  push.set_tag(static_cast<uint16_t>(push_tag));
-  push.set_value(std::string(body));
-  return push;
 }

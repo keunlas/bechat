@@ -44,7 +44,7 @@ class TlvMessage {
 
   inline ValueT* mutable_value() { return &value_; }
 
-  inline void set_value(const ValueT& value) { value_ = value; }
+  inline void set_value(ValueT value) { value_ = std::move(value); }
 
  public:
   std::string SerializeToString();

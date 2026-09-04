@@ -33,11 +33,13 @@ class TlvCodec {
                                  uint32_t request_id, StatusCode::Type status,
                                  std::string_view body = {});
 
-  static TlvMessage MakeError(uint32_t request_id, uint16_t request_tag,
-                              StatusCode::Type status);
-
+ public:
   static TlvMessage MakePush(MessageTag::Push::Type push_tag,
                              std::string_view body = {});
+
+ public:
+  static TlvMessage MakeError(uint32_t request_id, uint16_t request_tag,
+                              StatusCode::Type status);
 };
 
 #endif  // !BECHAT_TLV_TLV_CODEC_H_
