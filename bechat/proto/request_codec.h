@@ -11,21 +11,35 @@
 #ifndef BECHAT_PROTO_REQUEST_CODEC_H_
 #define BECHAT_PROTO_REQUEST_CODEC_H_
 
+#include <expected>
 #include <memory>
 #include <string_view>
+#include <variant>
 #include <vector>
 
+#include "bechat/proto/request_params.h"
 #include "bechat/tlv/message_tag.h"
+#include "bechat/tlv/status_code.h"
 #include "bechat/utils/types.h"
 
-struct DecodedRequest {
-  uint16_t tag;
-  uint32_t request_id;
-  std::string_view payload;  // 去掉 request_id 之后的剩余 value
-};
+using DecodeOutcome = std::expected<RequestParams, StatusCode::Type>;
 
 class RequestCodec {
  public:
+  static DecodeOutcome Decode(uint16_t tag, std::string_view payload) {
+    DecodeOutcome outcome;
+
+    // switch (tag) {
+    //   case 1:
+    //     /* code */
+    //     break;
+
+    //   default:
+    //     break;
+    // }
+
+    return outcome;
+  }
 };
 
 #endif  // !BECHAT_PROTO_REQUEST_CODEC_H_
