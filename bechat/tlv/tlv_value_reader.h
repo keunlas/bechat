@@ -57,6 +57,18 @@ class ValueReader {
     return true;
   }
 
+  /// @brief 读出一个字符串视图
+  /// (String：u16 length + bytes)
+  /// @attention 请确保使用 out 时，构造用的 value 依旧可访问
+  bool ReadStringView(std::string_view& out) {
+    uint16_t len = 0;
+    if (!ReadInt<uint16_t>(len)) return false;
+    if (len > Remaining()) return false;
+    out = std::string_view(pos_, len);
+    pos_ += len;
+    return true;
+  }
+
  public:
   /// @brief 获取 value 还剩下多少未读字节
   inline size_t Remaining() const {

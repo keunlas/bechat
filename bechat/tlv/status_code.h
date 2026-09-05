@@ -17,7 +17,6 @@ struct StatusCode {
   enum Type : uint16_t {
     Ok = 0x0000,               // 成功
     MalformedPacket = 0x0001,  // 协议错误
-    InvalidRequestId,          // 请求 ID 错误
     InvalidParameter,          // 参数错误
     NotLoggedIn,               // 未登录
     UsernameAlreadyExists,     // 用户名已存在

@@ -21,17 +21,11 @@ void ServerContext::HandleRequest(SessionPtr session,
                                   RequestMessagePtr request) {
   asio::post(io_threads_.GetIoContext(), [this, session, request]() {
     try {
-      // Tag 不对则返回 StatusCode::MalformedPacket
-      if (!MessageTag::IsValidReqTag(request->tag())) {
+      // Tag 不对或者 RequestId 不存在则返回 StatusCode::MalformedPacket
+      if (MessageTag::IsValidReqTag(request->tag()) == false ||
+          request->exist_request_id() == false) {
         session->Send(TlvCodec::MakeError(request->request_id(), request->tag(),
                                           StatusCode::MalformedPacket));
-        return;
-      }
-
-      // RequestId 不存在则返回 StatusCode::InvalidRequestId
-      if (request->request_id() == 0U) {
-        session->Send(TlvCodec::MakeError(request->request_id(), request->tag(),
-                                          StatusCode::InvalidRequestId));
         return;
       }
 
@@ -41,7 +35,8 @@ void ServerContext::HandleRequest(SessionPtr session,
        * 暂定逻辑：
        *    1. RequestCodec 进行 request 的解析，分析出 Req 类型。
        *    2. 并且 RequestCodec 根据 Req 类型解析 request 的各项参数。
-       *    3. 把解析好的东西传递给 ServerContext 中的和服务有关的成员变量去处理。
+       *    3. 把解析好的东西传递给 ServerContext
+       * 中的和服务有关的成员变量去处理。
        */
       session->Send(TlvCodec::MakeResponse(
           static_cast<MessageTag::Resp::Type>(

@@ -11,14 +11,7 @@
 #include "bechat/proto/request_message.h"
 
 RequestMessage::RequestMessage(uint16_t tag, std::string value)
-    : TlvMessage(tag, std::move(value)) {
-  auto peek_id = peek_request_id();
-  if (peek_id.has_value()) {
-    request_id_ = peek_id.value();
-  } else {
-    request_id_ = 0;
-  }
-}
+    : TlvMessage(tag, std::move(value)), request_id_(peek_request_id()) {}
 
 /// @brief 获取载荷
 std::string_view RequestMessage::payload() const {
