@@ -1,13 +1,3 @@
-/**
- * @file concepts.h
- * @author Keunlas
- * @brief 一些特定的概念模板
- * @date 2026-08-23
- *
- * @copyright Copyright (c) 2026
- *
- */
-
 #ifndef BECHAT_UTILS_CONCEPTS_H_
 #define BECHAT_UTILS_CONCEPTS_H_
 

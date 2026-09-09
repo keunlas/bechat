@@ -1,14 +1,15 @@
-#include "bechat/core/acceptor.h"
-#include "bechat/core/server_context.h"
-#include "bechat/utils/io_threads.h"
+#include "bechat/core/io_contexts.h"
+#include "bechat/core/server.h"
+#include "bechat/core/ssl_server.h"
+#include "bechat/utils/config.h"
 #include "bechat/utils/logger.h"
 
 int main(int argc, char* argv[]) {
   try {
-    IoThreads io_threads(2);
-    ServerContext server_context(io_threads);
-    Acceptor acceptor(io_threads, "127.0.0.1", 35565, server_context);
-    io_threads.Run();
+    IoContexts io_contexts(CFG_SERVER_IO_THREADS);
+    Server server(io_contexts, CFG_SERVER_IP, CFG_SERVER_PORT);
+    SslServer ssl_server(io_contexts, CFG_SERVER_IP, CFG_SERVER_PORT + 1);
+    io_contexts.Run();
   } catch (std::exception& e) {
     CRITICAL("Exception ocurred in main function: {}", e.what());
   }
