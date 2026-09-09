@@ -7,8 +7,7 @@ target_sources(bechat PRIVATE
   core/io_contexts.cpp
   core/server.cpp
   core/ssl_server.cpp
-  # core/session.cpp
-  # core/server_context.cpp
+  core/server_context.cpp
 )
 
 target_sources(bechat PRIVATE
