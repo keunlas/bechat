@@ -7,12 +7,14 @@
 #include <string>
 
 #include "bechat/core/io_contexts.h"
+#include "bechat/core/server_context.h"
 #include "bechat/core/session.h"
 #include "bechat/utils/logger.h"
 
 class SslServer {
  public:
-  SslServer(IoContexts& io_contexts, const std::string& ip, uint16_t port);
+  SslServer(IoContexts& io_contexts, ServerContexts& server_contexts,
+            const std::string& ip, uint16_t port);
 
  private:
   void ssl_configure();
@@ -21,6 +23,7 @@ class SslServer {
 
  private:
   IoContexts& io_contexts_;
+  ServerContexts& server_contexts_;
   asio::ssl::context ssl_context_;
   asio::ip::tcp::endpoint endpoint_;
   asio::ip::tcp::acceptor acceptor_;

@@ -22,7 +22,8 @@ inline constexpr bool IsSslStream =
 template <typename Socket>
 class Session : public std::enable_shared_from_this<Session<Socket>> {
  public:
-  explicit Session(Socket socket) : socket_(std::move(socket)) {}
+  explicit Session(ServerContexts& server_contexts, Socket socket)
+      : server_contexts_(server_contexts), socket_(std::move(socket)) {}
 
   void Start() {
     if constexpr (IsSslStream<Socket>) {
@@ -42,7 +43,11 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   }
 
  private:
+  ServerContexts& server_contexts_;
   Socket socket_;
 };
+
+using SslSession = Session<asio::ssl::stream<asio::ip::tcp::socket>>;
+using NosslSession = Session<asio::ip::tcp::socket>;
 
 #endif  // !BECHAT_CORE_SESSION_H_

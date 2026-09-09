@@ -14,8 +14,8 @@ class Config {
 #define CFG_SSL_DH Config::Instance().GetValue("ssl.dh")
 
 #define CFG_SERVER_IO_THREADS Config::Instance().GetAs<int>("server.io_threads")
-
 #define CFG_SERVER_IP Config::Instance().GetValue("server.ip")
 #define CFG_SERVER_PORT Config::Instance().GetAs<uint16_t>("server.port")
+#define CFG_SERVER_SSL_PORT Config::Instance().GetAs<uint16_t>("server.ssl_port")
 
 #endif  // !BECHAT_UTILS_CONFIG_H_

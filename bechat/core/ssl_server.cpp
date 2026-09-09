@@ -2,9 +2,10 @@
 
 #include "bechat/utils/config.h"
 
-SslServer::SslServer(IoContexts& io_contexts, const std::string& ip,
-                     uint16_t port)
+SslServer::SslServer(IoContexts& io_contexts, ServerContexts& server_contexts,
+                     const std::string& ip, uint16_t port)
     : io_contexts_(io_contexts),
+      server_contexts_(server_contexts),
       ssl_context_(asio::ssl::context::sslv23_server),
       endpoint_(asio::ip::make_address(ip), port),
       acceptor_(io_contexts_.GetIoContext(), endpoint_) {
@@ -28,9 +29,9 @@ void SslServer::start_accept() {
   acceptor_.async_accept(
       [this](const std::error_code& error, asio::ip::tcp::socket socket) {
         if (!error) {
-          std::make_shared<Session<asio::ssl::stream<asio::ip::tcp::socket>>>(
-              asio::ssl::stream<asio::ip::tcp::socket>(std::move(socket),
-                                                       ssl_context_))
+          using ssl_socket = asio::ssl::stream<asio::ip::tcp::socket>;
+          std::make_shared<SslSession>(
+              server_contexts_, ssl_socket(std::move(socket), ssl_context_))
               ->Start();
         } else {
           ERROR("Server accept error occurred: {}", error.message());
