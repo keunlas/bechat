@@ -15,7 +15,7 @@ class ServerContexts {
   /**
    * @brief 处理 Session 收到的数据
    *
-   * @param sender 收到数据的 Session，可以通过它向该 Session 发送数据
+   * @param session_handle 收到数据的 Session，可以通过它向该 Session 发送数据
    * @param message Session 收到的数据
    */
   void OnSessionMessage(const std::weak_ptr<SessionHandle>& session_handle,
