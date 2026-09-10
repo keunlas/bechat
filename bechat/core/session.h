@@ -212,13 +212,14 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
   /**
    * @brief 一次读取完成之后的处理
    *
-   * 取出 streambuf_ 中收到的数据，交给 ServerContexts 处理；
+   * 取出 streambuf_ 中收到的 TLV 消息，交给 ServerContexts 处理；
    * 消息的解析由 ServerContexts 负责。
    *
    */
   void on_read_completed() {
     if (streambuf_.size() == 0) return;
 
+    // [TODO] 暂时是取出缓冲区中的全部内容，后续会在这里分割一条 TLV 再传出去
     std::string msg(streambuf_.size(), '\0');
     asio::buffer_copy(asio::buffer(msg), streambuf_.data(), streambuf_.size());
     streambuf_.consume(streambuf_.size());
