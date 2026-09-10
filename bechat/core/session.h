@@ -171,6 +171,23 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   const void* const memaddr() { return (void*)this; }
 
   /**
+   * @brief 错误处理的逻辑
+   *
+   */
+  void handle_error(const std::error_code& error) {
+    if (error == asio::error::eof) {
+      // 对方先发起了正常的关闭(close_notify/FIN)，回一个正常的关闭
+      INFO("Session {} peer closed connection", memaddr());
+      Shutdown();
+    } else if (error == asio::error::operation_aborted) {
+      // Session 正在关闭，读写被取消属于预期情况
+    } else {
+      ERROR("Session {} error: {}", memaddr(), error.message());
+      Abort();
+    }
+  }
+
+  /**
    * @brief 处理正常关闭的逻辑（只在 write_strand_ 中执行）
    *
    */
@@ -178,15 +195,19 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     assert(closing_.load() == true);
     assert(write_strand_.running_in_this_thread());
 
-    // 正常关闭的过程中被要求异常关闭，交给 do_abort() 处理
+    // 正常关闭的过程中有异常关闭正在处理，交给正在处理的异常关闭
     if (aborted_.load() || closed_.load()) return;
 
-    // 1. [TODO] 待 server_contexts_ 完善后处理相关的逻辑
+    // NosslSession 已经可以正常关闭了
+    if constexpr (!IsSslStream<Socket>) {
+      close_socket(true);
+    }
 
-    // 2. 处理 socket 关闭的逻辑，SslSession 需要先完成 TLS 挥手
-    if constexpr (IsSslStream<Socket>) {
-      // TLS 挥手需要等待对方回复 close_notify，对方一直不回复则超时后直接断开
+    // SslSession 需要先完成 TLS 挥手
+    else {
       auto self(this->shared_from_this());
+
+      // 注册 TLS 挥手超时定时器
       shutdown_timer_.expires_after(kShutdownTimeout);
       shutdown_timer_.async_wait(asio::bind_executor(
           write_strand_, [self](const std::error_code& error) {
@@ -196,23 +217,22 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
           }));
 
       // 取消还在进行的读写，避免和 TLS 挥手重叠
-      std::error_code ignored;
-      socket_.lowest_layer().cancel(ignored);
+      std::error_code _;
+      socket_.lowest_layer().cancel(_);
 
+      // 开始异步 TLS 挥手
       socket_.async_shutdown(asio::bind_executor(
           write_strand_, [self](const std::error_code& error) {
-            self->shutdown_timer_.cancel();
+            self->shutdown_timer_.cancel();  // 挥手结束，取消挥手超时定时器
             if (error) {
-              if (self->closed_.load()) return;  // 已经被异常关闭打断
+              if (self->closed_.load()) return;  // 被异常关闭打断
               WARN("Session {} tls shutdown failed: {}", self->memaddr(),
                    error.message());
-              self->do_abort();
-              return;
+              self->do_abort();  // 挥手失败，进行异常关闭
+            } else {
+              self->close_socket(true);  // 挥手成功
             }
-            self->close_socket(true);
           }));
-    } else {
-      close_socket(true);
     }
   }
 
@@ -222,11 +242,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
    */
   void do_abort() {
     assert(write_strand_.running_in_this_thread());
-
-    // 1. [TODO] 待 server_contexts_ 完善后处理相关的逻辑
-
-    // 2. 不做 TLS 挥手，直接断开 socket
-    close_socket(false);
+    close_socket(false);  // 直接断开 socket
   }
 
   /**
@@ -242,6 +258,9 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     std::error_code _;  // 忽略过程的所有错误
     shutdown_timer_.cancel();
 
+    // [TODO] 待 server_contexts_ 完善后处理相关的逻辑
+    // server_contexts_.OnCloseSession(...);
+
     auto shutdown_type = graceful ? asio::socket_base::shutdown_send
                                   : asio::socket_base::shutdown_both;
 
@@ -253,23 +272,6 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
       socket_.cancel(_);
       socket_.shutdown(shutdown_type, _);
       socket_.close(_);
-    }
-  }
-
-  /**
-   * @brief 错误处理的逻辑
-   *
-   */
-  void handle_error(const std::error_code& error) {
-    if (error == asio::error::eof) {
-      // 对方先发起了正常的关闭(close_notify/FIN)，回一个正常的关闭
-      INFO("Session {} peer closed connection", memaddr());
-      Shutdown();
-    } else if (error == asio::error::operation_aborted) {
-      // Session 正在关闭，读写被取消属于预期情况
-    } else {
-      ERROR("Session {} error: {}", memaddr(), error.message());
-      Abort();
     }
   }
 
