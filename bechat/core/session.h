@@ -127,6 +127,21 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
     });
   }
 
+  /**
+   * @brief SessionHandle 接口的实现，一次向对端发送多条数据
+   *
+   * 线程安全，可以在任意线程调用；这批数据会连续排队，按顺序发送，
+   * 不会被别的线程发送的数据插到中间。Session 关闭后调用不会发送任何数据。
+   *
+   * @param messages 待发送的数据
+   */
+  void SendBatch(std::vector<std::string> messages) override {
+    auto self(this->shared_from_this());
+    asio::post(strand_, [self, messages = std::move(messages)]() mutable {
+      self->do_send_batch(std::move(messages));
+    });
+  }
+
  private:
   /**
    * @brief 仅当该 Session 为 SslSession 时调用
@@ -200,8 +215,37 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
     if (closing_.load() || closed_.load()) return;
 
     write_queue_.emplace_back(std::move(message));
+    do_write_if_idle();
+  }
 
-    // 已经在发送数据了，排队等待上一个数据发送完成
+  /**
+   * @brief 把多条数据放进发送队列，并尝试发送（只在 strand_ 中执行）
+   *
+   * 整批数据连续入队，所以它们不会被别的数据插到中间；
+   * 入队后才开始发送，避免出现"第一条已经发出、剩下的还在排队"。
+   *
+   * @param messages 待发送的数据
+   */
+  void do_send_batch(std::vector<std::string> messages) {
+    assert(strand_.running_in_this_thread());
+
+    // Session 正在关闭或者已经关闭，不再发送数据
+    if (closing_.load() || closed_.load()) return;
+
+    for (auto&& message : messages) {
+      write_queue_.emplace_back(std::move(message));
+    }
+    do_write_if_idle();
+  }
+
+  /**
+   * @brief 没有数据正在发送时，开始发送发送队列中的数据（只在 strand_ 中执行）
+   *
+   */
+  void do_write_if_idle() {
+    assert(strand_.running_in_this_thread());
+
+    // 已经有数据在发送了，排队等待上一个发送完成
     if (writing_) return;
     do_write();
   }
@@ -221,7 +265,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
 
     // 尽量从队列中取数据，只要加上下一条不超过 kMaxBatchSize 就继续取；
     // 至少取一条，避免单条数据超过 kMaxBatchSize 时一直发不出去
-    auto batch = std::make_shared<SendBatch>();
+    auto batch = std::make_shared<WriteBatch>();
     std::size_t batch_size = 0;
     while (!write_queue_.empty()) {
       const std::string& next = write_queue_.front();
@@ -377,7 +421,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
    * 异步发送完成之前，这批数据必须一直存活，所以用 shared_ptr 持有。
    *
    */
-  struct SendBatch {
+  struct WriteBatch {
     // 从发送队列中取出的数据
     std::vector<std::string> messages;
     // 指向 messages 中数据的 buffer 序列，用来一次发送整批数据
