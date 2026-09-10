@@ -7,6 +7,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -23,18 +24,35 @@ template <typename T>
 inline constexpr bool IsSslStream =
     IsSslStreamT<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
-namespace {
-// TLS 挥手等待对方 close_notify 的超时时间
-static constexpr auto kShutdownTimeout{std::chrono::seconds(3)};
-}  // namespace
-
+/**
+ * @brief Session 类
+ *
+ * @tparam Socket 可以是 `asio::ip::tcp::socket`
+ * 或者 `asio::ssl::stream<asio::ip::tcp::socket>` 等其他流式 socket
+ */
 template <typename Socket>
 class Session : public std::enable_shared_from_this<Session<Socket>> {
+ public:
+  // TLS 挥手等待对方 close_notify 的超时时间
+  static constexpr auto kShutdownTimeout{std::chrono::seconds(3)};
+
+  // TLV 协议各字段大小
+  static constexpr uint16_t kTagSize{sizeof(uint16_t)};
+  static constexpr uint16_t kLengthSize{sizeof(uint16_t)};
+  static constexpr uint16_t kMaxValueSize{std::numeric_limits<uint16_t>::max()};
+
+  // 每次读取的块的大小
+  static constexpr uint16_t kChunkSize{4096U};
+
+  // kMaxPayloadSize 必须比 kMaxValueSize 小才会起作用
+  static constexpr uint16_t kMaxPayloadSize{kMaxValueSize};
+
  public:
   explicit Session(ServerContexts& server_contexts, Socket socket)
       : server_contexts_(server_contexts),
         socket_(std::move(socket)),
         read_strand_(asio::make_strand(socket_.get_executor())),
+        streambuf_(kTagSize + kLengthSize + kMaxValueSize),
         write_strand_(asio::make_strand(socket_.get_executor())),
         shutdown_timer_(socket_.get_executor()) {}
 
@@ -48,7 +66,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
       ssl_handshake();
     } else {
       INFO("Session {} is a NosslSession", memaddr());
-      read_message();
+      start_read();
     }
   }
 
@@ -96,41 +114,52 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     socket_.async_handshake(asio::ssl::stream_base::server,
                             [this, self](const std::error_code& error) {
                               if (!error) {
-                                read_message();
+                                start_read();
                               } else {
                                 handle_error(error);
                               }
                             });
   }
 
-  void read_message() {
+  /**
+   * @brief 开始从对端读取消息
+   *
+   */
+  void start_read() {
     auto self(this->shared_from_this());
     socket_.async_read_some(
-        asio::buffer(buf_),
-        asio::bind_executor(
-            read_strand_,
-            [this, self](asio::error_code ec, size_t n) {
-              if (ec) {
-                handle_error(ec);
-                return;
-              }
+        streambuf_.prepare(
+            (streambuf_.size() + kChunkSize > streambuf_.max_size())
+                ? (streambuf_.max_size() - streambuf_.size())
+                : (kChunkSize)),
+        asio::bind_executor(read_strand_,
+                            [this, self](asio::error_code ec, size_t n) {
+                              if (ec) {
+                                handle_error(ec);
+                              } else {
+                                streambuf_.commit(n);
+                                parse_messages();
+                                start_read();
+                              }
+                            }));
+  }
 
-              socket_.async_write_some(
-                  asio::buffer(buf_),
-                  asio::bind_executor(
-                      write_strand_,
-                      [this, self](std::error_code ec, std::size_t n) {
-                        (void)n;
-
-                        if (!ec) {
-                          read_message();
-                        } else {
-                          handle_error(ec);
-                        }
-                      }));
-            }
-
-            ));
+  void parse_messages() {
+    // [TODO] 暂时使用 ECHO 逻辑
+    std::vector<char> msg(streambuf_.size());
+    asio::buffer_copy(asio::buffer(msg), streambuf_.data(), streambuf_.size());
+    streambuf_.consume(streambuf_.size());
+    auto self(this->shared_from_this());
+    asio::async_write(
+        socket_, asio::buffer(msg),
+        asio::bind_executor(write_strand_,
+                            [this, self](std::error_code ec, std::size_t n) {
+                              if (ec) {
+                                handle_error(ec);
+                              } else {
+                                INFO("write {} bytes", n);
+                              }
+                            }));
   }
 
   /**
@@ -249,7 +278,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
 
   // 读 strand 用来进行读操作
   asio::strand<asio::any_io_executor> read_strand_;
-  std::array<char, 1024> buf_;
+  asio::streambuf streambuf_;
 
   // 写 strand 用来进行写操作
   asio::strand<asio::any_io_executor> write_strand_;
