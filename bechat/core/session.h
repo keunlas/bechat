@@ -5,6 +5,8 @@
 #include <asio/ssl.hpp>
 #include <atomic>
 #include <cassert>
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -40,6 +42,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
       ssl_handshake();
     } else {
       INFO("Session {} is a NosslSession", memaddr());
+      read_message();
     }
   }
 
@@ -65,10 +68,41 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     socket_.async_handshake(asio::ssl::stream_base::server,
                             [this, self](const std::error_code& error) {
                               if (!error) {
+                                read_message();
                               } else {
                                 handle_error(error);
                               }
                             });
+  }
+
+  void read_message() {
+    auto self(this->shared_from_this());
+    socket_.async_read_some(
+        asio::buffer(buf_),
+        asio::bind_executor(
+            read_strand_,
+            [this, self](asio::error_code ec, size_t n) {
+              if (ec) {
+                ERROR("read_message: {}", ec.message());
+                return;
+              }
+
+              socket_.async_write_some(
+                  asio::buffer(buf_),
+                  asio::bind_executor(
+                      write_strand_,
+                      [this, self](std::error_code ec, std::size_t n) {
+                        (void)n;
+
+                        if (!ec) {
+                          read_message();
+                        } else {
+                          ERROR("read_message: {}", ec.message());
+                        }
+                      }));
+            }
+
+            ));
   }
 
   /**
@@ -123,6 +157,8 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
 
   // 读 strand 用来进行读操作
   asio::strand<asio::any_io_executor> read_strand_;
+  std::array<char, 1024> buf_;
+  // asio::streambuf streambuf_;
 
   // 写 strand 用来进行写操作
   asio::strand<asio::any_io_executor> write_strand_;
