@@ -51,9 +51,8 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   explicit Session(ServerContexts& server_contexts, Socket socket)
       : server_contexts_(server_contexts),
         socket_(std::move(socket)),
-        read_strand_(asio::make_strand(socket_.get_executor())),
+        strand_(asio::make_strand(socket_.get_executor())),
         streambuf_(kTagSize + kLengthSize + kMaxValueSize),
-        write_strand_(asio::make_strand(socket_.get_executor())),
         shutdown_timer_(socket_.get_executor()) {}
 
   /**
@@ -82,7 +81,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   void Shutdown() {
     if (!closing_.exchange(true)) {
       auto self(this->shared_from_this());
-      asio::post(write_strand_, [self] { self->do_shutdown(); });
+      asio::post(strand_, [self] { self->do_shutdown(); });
     }
   }
 
@@ -100,7 +99,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     aborted_.store(true);
     closing_.store(true);
     auto self(this->shared_from_this());
-    asio::post(write_strand_, [self] { self->do_abort(); });
+    asio::post(strand_, [self] { self->do_abort(); });
   }
 
  private:
@@ -127,12 +126,12 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
    */
   void start_read() {
     auto self(this->shared_from_this());
+    auto valid_bufsize = streambuf_.size() + kChunkSize > streambuf_.max_size()
+                             ? streambuf_.max_size() - streambuf_.size()
+                             : kChunkSize;
     socket_.async_read_some(
-        streambuf_.prepare(
-            (streambuf_.size() + kChunkSize > streambuf_.max_size())
-                ? (streambuf_.max_size() - streambuf_.size())
-                : (kChunkSize)),
-        asio::bind_executor(read_strand_,
+        streambuf_.prepare(valid_bufsize),
+        asio::bind_executor(strand_,
                             [this, self](asio::error_code ec, size_t n) {
                               if (ec) {
                                 handle_error(ec);
@@ -151,16 +150,16 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     streambuf_.consume(streambuf_.size());
     auto message = std::make_shared<std::vector<char>>(std::move(msg));
     auto self(this->shared_from_this());
-    asio::async_write(socket_, asio::buffer(*message),
-                      asio::bind_executor(write_strand_, [this, self, message](
-                                                             std::error_code ec,
-                                                             std::size_t n) {
-                        if (ec) {
-                          handle_error(ec);
-                        } else {
-                          INFO("write {} bytes", n);
-                        }
-                      }));
+    asio::async_write(
+        socket_, asio::buffer(*message),
+        asio::bind_executor(
+            strand_, [this, self, message](std::error_code ec, std::size_t n) {
+              if (ec) {
+                handle_error(ec);
+              } else {
+                INFO("write {} bytes", n);
+              }
+            }));
   }
 
   /**
@@ -188,12 +187,12 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   }
 
   /**
-   * @brief 处理正常关闭的逻辑（只在 write_strand_ 中执行）
+   * @brief 处理正常关闭的逻辑（只在 strand_ 中执行）
    *
    */
   void do_shutdown() {
     assert(closing_.load() == true);
-    assert(write_strand_.running_in_this_thread());
+    assert(strand_.running_in_this_thread());
 
     // 正常关闭的过程中有异常关闭正在处理，交给正在处理的异常关闭
     if (aborted_.load() || closed_.load()) return;
@@ -209,8 +208,8 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
 
       // 注册 TLS 挥手超时定时器
       shutdown_timer_.expires_after(kShutdownTimeout);
-      shutdown_timer_.async_wait(asio::bind_executor(
-          write_strand_, [self](const std::error_code& error) {
+      shutdown_timer_.async_wait(
+          asio::bind_executor(strand_, [self](const std::error_code& error) {
             if (error) return;  // 挥手已经结束，定时器被取消
             WARN("Session {} tls shutdown timeout", self->memaddr());
             self->do_abort();
@@ -221,8 +220,8 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
       socket_.lowest_layer().cancel(_);
 
       // 开始异步 TLS 挥手
-      socket_.async_shutdown(asio::bind_executor(
-          write_strand_, [self](const std::error_code& error) {
+      socket_.async_shutdown(
+          asio::bind_executor(strand_, [self](const std::error_code& error) {
             self->shutdown_timer_.cancel();  // 挥手结束，取消挥手超时定时器
             if (error) {
               if (self->closed_.load()) return;  // 被异常关闭打断
@@ -237,11 +236,11 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   }
 
   /**
-   * @brief 处理异常关闭的逻辑（只在 write_strand_ 中执行）
+   * @brief 处理异常关闭的逻辑（只在 strand_ 中执行）
    *
    */
   void do_abort() {
-    assert(write_strand_.running_in_this_thread());
+    assert(strand_.running_in_this_thread());
     close_socket(false);  // 直接断开 socket
   }
 
@@ -252,7 +251,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
    *                 false 表示异常关闭，直接断开
    */
   void close_socket(bool graceful) {
-    assert(write_strand_.running_in_this_thread());
+    assert(strand_.running_in_this_thread());
     if (closed_.exchange(true)) return;
 
     std::error_code _;  // 忽略过程的所有错误
@@ -279,12 +278,11 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
   ServerContexts& server_contexts_;
   Socket socket_;
 
-  // 读 strand 用来进行读操作
-  asio::strand<asio::any_io_executor> read_strand_;
-  asio::streambuf streambuf_;
+  // 串行化该 Session 的读写操作
+  asio::strand<asio::any_io_executor> strand_;
 
-  // 写 strand 用来进行写操作
-  asio::strand<asio::any_io_executor> write_strand_;
+  // 读缓冲区
+  asio::streambuf streambuf_;
 
   // 当出现错误或者异常时，置位 closing_
   std::atomic_bool closing_{false};
