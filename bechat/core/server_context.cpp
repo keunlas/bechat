@@ -13,3 +13,9 @@ void ServerContexts::OnSessionMessage(
   // [TODO] 暂时使用 ECHO 逻辑，后续在这里解析消息并分发请求
   session->Send(std::move(message));
 }
+
+void ServerContexts::OnSessionClose(
+    const std::weak_ptr<SessionHandle>& /*session_handle*/) {
+  // [TODO] 暂时不需要处理 Session 关闭，后续可以在这里清理该 Session 的数据
+  //        （比如在线用户列表、订阅关系等）
+}

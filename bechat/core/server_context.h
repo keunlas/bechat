@@ -21,6 +21,13 @@ class ServerContexts {
   void OnSessionMessage(const std::weak_ptr<SessionHandle>& session_handle,
                         std::string message);
 
+  /**
+   * @brief 处理 Session 关闭
+   *
+   * @param session_handle 已经关闭的 Session，此时它已经不能发送数据
+   */
+  void OnSessionClose(const std::weak_ptr<SessionHandle>& session_handle);
+
  private:
   IoContexts& io_context_;
 };

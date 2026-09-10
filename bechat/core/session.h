@@ -397,8 +397,9 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
     shutdown_timer_.cancel();
     write_queue_.clear();  // 关闭后队列中的数据不再发送
 
-    // [TODO] 待 server_contexts_ 完善后处理相关的逻辑
-    // server_contexts_.OnCloseSession(...);
+    // 通知 ServerContexts 处理 Session 关闭相关的逻辑
+    auto self(this->shared_from_this());
+    server_contexts_.OnSessionClose(self);
 
     auto shutdown_type = graceful ? asio::socket_base::shutdown_send
                                   : asio::socket_base::shutdown_both;
