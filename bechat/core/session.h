@@ -31,6 +31,23 @@ inline constexpr bool IsSslStream =
     IsSslStreamT<std::remove_cv_t<std::remove_reference_t<T>>>::value;
 
 /**
+ * @brief 生成 Session 的自增 id
+ *
+ * 定义在非模板的上下文里，保证 NosslSession 和 SslSession 共用同一个计数器；
+ * 否则模板的每个实例化都会有一份自己的静态变量。
+ *
+ * id 从 1 开始，只保证同时存活的 Session 之间不重复。发完 2^64 个之后计数器
+ * 会回绕（回绕时会先发出一次 0），然后重新从 1 开始——这个量级现实中不可能
+ * 达到，但如果以后 id 需要跨进程/永久唯一，得换成带启动时间戳或者其他的方案。
+ *
+ * @return uint64_t 从 1 开始的自增 id
+ */
+inline uint64_t NextSessionId() {
+  static std::atomic<uint64_t> next_id{0};
+  return next_id.fetch_add(1, std::memory_order_relaxed) + 1;
+}
+
+/**
  * @brief Session 类
  *
  * @tparam Socket 可以是 `asio::ip::tcp::socket`
@@ -71,10 +88,10 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
    */
   void Start() {
     if constexpr (IsSslStream<Socket>) {
-      INFO("Session {} is a SslSession", memaddr());
+      INFO("Session#{} is a SslSession", Id());
       ssl_handshake();
     } else {
-      INFO("Session {} is a NosslSession", memaddr());
+      INFO("Session#{} is a NosslSession", Id());
       start_read();
     }
   }
@@ -141,6 +158,13 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
       self->do_send_batch(std::move(messages));
     });
   }
+
+  /**
+   * @brief SessionHandle 接口的实现，获取该 Session 的 id
+   *
+   * @return uint64_t
+   */
+  uint64_t Id() const override { return id_; }
 
  private:
   /**
@@ -294,19 +318,12 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
                 write_queue_.clear();
                 handle_error(ec);
               } else {
-                INFO("Session {} write {} bytes in {} messages", memaddr(), n,
+                INFO("Session#{} write {} bytes in {} messages", Id(), n,
                      batch->messages.size());
                 do_write();
               }
             }));
   }
-
-  /**
-   * @brief 获取该 Session 的内存地址
-   *
-   * @return void*
-   */
-  const void* const memaddr() { return (void*)this; }
 
   /**
    * @brief 错误处理的逻辑
@@ -315,12 +332,12 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
   void handle_error(const std::error_code& error) {
     if (error == asio::error::eof) {
       // 对方先发起了正常的关闭(close_notify/FIN)，回一个正常的关闭
-      INFO("Session {} peer closed connection", memaddr());
+      INFO("Session#{} peer closed connection", Id());
       Shutdown();
     } else if (error == asio::error::operation_aborted) {
       // Session 正在关闭，读写被取消属于预期情况
     } else {
-      ERROR("Session {} error: {}", memaddr(), error.message());
+      ERROR("Session#{} error: {}", Id(), error.message());
       Abort();
     }
   }
@@ -350,7 +367,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
       shutdown_timer_.async_wait(
           asio::bind_executor(strand_, [self](const std::error_code& error) {
             if (error) return;  // 挥手已经结束，定时器被取消
-            WARN("Session {} tls shutdown timeout", self->memaddr());
+            WARN("Session#{} tls shutdown timeout", self->Id());
             self->do_abort();
           }));
 
@@ -364,7 +381,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
             self->shutdown_timer_.cancel();  // 挥手结束，取消挥手超时定时器
             if (error) {
               if (self->closed_.load()) return;  // 被异常关闭打断
-              WARN("Session {} tls shutdown failed: {}", self->memaddr(),
+              WARN("Session#{} tls shutdown failed: {}", self->Id(),
                    error.message());
               self->do_abort();  // 挥手失败，进行异常关闭
             } else {
@@ -432,6 +449,9 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
  private:
   ServerContexts& server_contexts_;
   Socket socket_;
+
+  // Session 的自增 id，创建时分配，用来区分不同的 Session
+  const uint64_t id_{NextSessionId()};
 
   // 串行化该 Session 的读写操作
   asio::strand<asio::any_io_executor> strand_;

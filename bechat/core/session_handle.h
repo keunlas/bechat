@@ -1,6 +1,7 @@
 #ifndef BECHAT_CORE_SESSION_HANDLE_H_
 #define BECHAT_CORE_SESSION_HANDLE_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,16 @@ class SessionHandle {
    * @param messages 待发送的数据，按顺序发送
    */
   virtual void SendBatch(std::vector<std::string> messages) = 0;
+
+  /**
+   * @brief 获取该 Session 的 id
+   *
+   * id 在 Session 创建时分配，原则上唯一，可以用来区分不同的 Session，
+   * 比如打日志或者给容器当 key。
+   *
+   * @return uint64_t
+   */
+  virtual uint64_t Id() const = 0;
 };
 
 #endif  // !BECHAT_CORE_SESSION_HANDLE_H_
