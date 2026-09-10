@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <limits>
@@ -13,6 +14,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "bechat/core/server_context.h"
 #include "bechat/core/session_handle.h"
@@ -48,6 +50,9 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
 
   // 每次读取的块的大小
   static constexpr uint16_t kChunkSize{4096U};
+
+  // 一次发送的数据量的上限（发送队列中连续的小数据会被合并成一批发送）
+  static constexpr std::size_t kMaxBatchSize{4096U};
 
   // kMaxPayloadSize 必须比 kMaxValueSize 小才会起作用
   static constexpr uint16_t kMaxPayloadSize{kMaxValueSize};
@@ -202,9 +207,10 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
   }
 
   /**
-   * @brief 发送发送队列中队首的数据（只在 strand_ 中执行）
+   * @brief 发送发送队列中的数据（只在 strand_ 中执行）
    *
-   * 一次只发送一条数据，发送完成后继续发送下一条数据。
+   * 一次发送的数据量不超过 kMaxBatchSize，队列中连续的小数据会被合并成
+   * 一批一起发送，减少写次数；发送完成后继续发送下一批数据。
    *
    */
   void do_write() {
@@ -213,21 +219,39 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
 
     writing_ = true;
 
-    auto message =
-        std::make_shared<std::string>(std::move(write_queue_.front()));
-    write_queue_.pop_front();
+    // 尽量从队列中取数据，只要加上下一条不超过 kMaxBatchSize 就继续取；
+    // 至少取一条，避免单条数据超过 kMaxBatchSize 时一直发不出去
+    auto batch = std::make_shared<SendBatch>();
+    std::size_t batch_size = 0;
+    while (!write_queue_.empty()) {
+      const std::string& next = write_queue_.front();
+      if (!batch->messages.empty() &&
+          batch_size + next.size() > kMaxBatchSize) {
+        break;
+      }
+      batch_size += next.size();
+      batch->messages.emplace_back(std::move(write_queue_.front()));
+      write_queue_.pop_front();
+    }
+
+    // buffers 指向 messages 中的数据，必须在 messages 全部就位之后再构建
+    batch->buffers.reserve(batch->messages.size());
+    for (const std::string& message : batch->messages) {
+      batch->buffers.emplace_back(asio::buffer(message));
+    }
 
     auto self(this->shared_from_this());
     asio::async_write(
-        socket_, asio::buffer(*message),
+        socket_, batch->buffers,
         asio::bind_executor(
-            strand_, [this, self, message](std::error_code ec, std::size_t n) {
+            strand_, [this, self, batch](std::error_code ec, std::size_t n) {
               writing_ = false;
               if (ec) {
                 write_queue_.clear();
                 handle_error(ec);
               } else {
-                INFO("Session {} write {} bytes", memaddr(), n);
+                INFO("Session {} write {} bytes in {} messages", memaddr(), n,
+                     batch->messages.size());
                 do_write();
               }
             }));
@@ -345,6 +369,20 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
       socket_.close(_);
     }
   }
+
+ private:
+  /**
+   * @brief 一批待发送的数据
+   *
+   * 异步发送完成之前，这批数据必须一直存活，所以用 shared_ptr 持有。
+   *
+   */
+  struct SendBatch {
+    // 从发送队列中取出的数据
+    std::vector<std::string> messages;
+    // 指向 messages 中数据的 buffer 序列，用来一次发送整批数据
+    std::vector<asio::const_buffer> buffers;
+  };
 
  private:
   ServerContexts& server_contexts_;
