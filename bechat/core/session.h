@@ -149,17 +149,19 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     std::vector<char> msg(streambuf_.size());
     asio::buffer_copy(asio::buffer(msg), streambuf_.data(), streambuf_.size());
     streambuf_.consume(streambuf_.size());
+    auto message = std::make_shared<std::vector<char>>(std::move(msg));
     auto self(this->shared_from_this());
-    asio::async_write(
-        socket_, asio::buffer(msg),
-        asio::bind_executor(write_strand_,
-                            [this, self](std::error_code ec, std::size_t n) {
-                              if (ec) {
-                                handle_error(ec);
-                              } else {
-                                INFO("write {} bytes", n);
-                              }
-                            }));
+    auto n = asio::write(socket_, asio::buffer(*message));
+    asio::async_write(socket_, ,
+                      asio::bind_executor(write_strand_, [this, self, message](
+                                                             std::error_code ec,
+                                                             std::size_t n) {
+                        if (ec) {
+                          handle_error(ec);
+                        } else {
+                          INFO("write {} bytes", n);
+                        }
+                      }));
   }
 
   /**
