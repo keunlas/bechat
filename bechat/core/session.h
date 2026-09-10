@@ -7,11 +7,15 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 
+#include "bechat/core/server_context.h"
+#include "bechat/core/session_handle.h"
 #include "bechat/utils/logger.h"
 
 template <typename T>
@@ -31,7 +35,8 @@ inline constexpr bool IsSslStream =
  * 或者 `asio::ssl::stream<asio::ip::tcp::socket>` 等其他流式 socket
  */
 template <typename Socket>
-class Session : public std::enable_shared_from_this<Session<Socket>> {
+class Session : public std::enable_shared_from_this<Session<Socket>>,
+                public SessionHandle {
  public:
   // TLS 挥手等待对方 close_notify 的超时时间
   static constexpr auto kShutdownTimeout{std::chrono::seconds(3)};
@@ -102,6 +107,21 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
     asio::post(strand_, [self] { self->do_abort(); });
   }
 
+  /**
+   * @brief SessionHandle 接口的实现，向对端发送一条数据
+   *
+   * 线程安全，可以在任意线程调用；数据会按调用顺序排队，依次发送。
+   * Session 关闭后调用不会发送任何数据。
+   *
+   * @param message 待发送的数据
+   */
+  void Send(std::string message) override {
+    auto self(this->shared_from_this());
+    asio::post(strand_, [self, message = std::move(message)]() mutable {
+      self->do_send(std::move(message));
+    });
+  }
+
  private:
   /**
    * @brief 仅当该 Session 为 SslSession 时调用
@@ -109,6 +129,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
    */
   void ssl_handshake() {
     static_assert(IsSslStream<Socket>, "Only SslSession can do ssl_handshake");
+
     auto self(this->shared_from_this());
     socket_.async_handshake(asio::ssl::stream_base::server,
                             [this, self](const std::error_code& error) {
@@ -125,10 +146,11 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
    *
    */
   void start_read() {
-    auto self(this->shared_from_this());
     auto valid_bufsize = streambuf_.size() + kChunkSize > streambuf_.max_size()
                              ? streambuf_.max_size() - streambuf_.size()
                              : kChunkSize;
+
+    auto self(this->shared_from_this());
     socket_.async_read_some(
         streambuf_.prepare(valid_bufsize),
         asio::bind_executor(strand_,
@@ -137,27 +159,76 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
                                 handle_error(ec);
                               } else {
                                 streambuf_.commit(n);
-                                parse_messages();
+                                on_read_completed();
                                 start_read();
                               }
                             }));
   }
 
-  void parse_messages() {
-    // [TODO] 暂时使用 ECHO 逻辑
-    std::vector<char> msg(streambuf_.size());
+  /**
+   * @brief 一次读取完成之后的处理
+   *
+   * 取出 streambuf_ 中收到的数据，交给 ServerContexts 处理；
+   * 消息的解析由 ServerContexts 负责。
+   *
+   */
+  void on_read_completed() {
+    if (streambuf_.size() == 0) return;
+
+    std::string msg(streambuf_.size(), '\0');
     asio::buffer_copy(asio::buffer(msg), streambuf_.data(), streambuf_.size());
     streambuf_.consume(streambuf_.size());
-    auto message = std::make_shared<std::vector<char>>(std::move(msg));
+
+    auto self(this->shared_from_this());
+    server_contexts_.OnSessionMessage(self, std::move(msg));
+  }
+
+  /**
+   * @brief 把数据放进发送队列，并尝试发送（只在 strand_ 中执行）
+   *
+   * @param message 待发送的数据
+   */
+  void do_send(std::string message) {
+    assert(strand_.running_in_this_thread());
+
+    // Session 正在关闭或者已经关闭，不再发送数据
+    if (closing_.load() || closed_.load()) return;
+
+    write_queue_.emplace_back(std::move(message));
+
+    // 已经在发送数据了，排队等待上一个数据发送完成
+    if (writing_) return;
+    do_write();
+  }
+
+  /**
+   * @brief 发送发送队列中队首的数据（只在 strand_ 中执行）
+   *
+   * 一次只发送一条数据，发送完成后继续发送下一条数据。
+   *
+   */
+  void do_write() {
+    assert(strand_.running_in_this_thread());
+    if (write_queue_.empty()) return;
+
+    writing_ = true;
+
+    auto message =
+        std::make_shared<std::string>(std::move(write_queue_.front()));
+    write_queue_.pop_front();
+
     auto self(this->shared_from_this());
     asio::async_write(
         socket_, asio::buffer(*message),
         asio::bind_executor(
             strand_, [this, self, message](std::error_code ec, std::size_t n) {
+              writing_ = false;
               if (ec) {
+                write_queue_.clear();
                 handle_error(ec);
               } else {
-                INFO("write {} bytes", n);
+                INFO("Session {} write {} bytes", memaddr(), n);
+                do_write();
               }
             }));
   }
@@ -256,6 +327,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
 
     std::error_code _;  // 忽略过程的所有错误
     shutdown_timer_.cancel();
+    write_queue_.clear();  // 关闭后队列中的数据不再发送
 
     // [TODO] 待 server_contexts_ 完善后处理相关的逻辑
     // server_contexts_.OnCloseSession(...);
@@ -283,6 +355,12 @@ class Session : public std::enable_shared_from_this<Session<Socket>> {
 
   // 读缓冲区
   asio::streambuf streambuf_;
+
+  // 待发送数据的队列（只在 strand_ 中访问）
+  std::deque<std::string> write_queue_;
+
+  // 是否有数据正在发送中（只在 strand_ 中访问）
+  bool writing_{false};
 
   // 当出现错误或者异常时，置位 closing_
   std::atomic_bool closing_{false};
