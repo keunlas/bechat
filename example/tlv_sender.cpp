@@ -1,212 +1,140 @@
 /**
  * @file tlv_sender.cpp
  * @author Keunlas
- * @brief 用于测试的 TLV 客户端：连接服务器并逐行发送 TlvMessage
- * @date 2026-08-17
+ * @brief 简单的 TLV 消息发送工具
+ * @date 2026-09-10
  *
  * @copyright Copyright (c) 2026
  *
- * 用法:
- *   tlv_sender <host> <port>
+ * 用法：tlv_sender [host] [port]，默认连接 localhost:35565
  *
- * 连接后从标准输入读取一行，格式为:
- *   <tag(hex)> <length(dec)> <value>
+ * 启动后每输入一行，就向服务端发送一条 TLV 消息，然后接收一条响应并回显，
+ * 输入格式为：
  *
- * 示例:
- *   0x1234 5 ABCDE          -> Tag=0x1234, Length=5,  Value="ABCDE"
- *   0x0002 0                -> Tag=0x0002, Length=0,  空 Value
+ *   <tag> <length> <value>
  *
- * 说明:
- *   - tag 以十六进制解析（支持 0x 前缀）；
- *   - length 以十进制解析，表示要发送的 Value 字节数；
- *   - value 取输入中剩余部分的「前 length 个字节」，不足 length 时报错并跳过。
+ * tag 为十六进制（可带 0x），length 为十进制长度，value 为内容，例如：
  *
- * 发送成功后等待并打印服务器返回的 TLV 响应（超时 3 秒）。
+ *   0x11a3 5 12345
+ *   11a3 5 12345
+ *
  */
 
-#include <endian.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-#include <asio.hpp>
 #include <cstdint>
-#include <iomanip>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 
-#include "bechat/tlv/tlv_message.h"
+/// @brief 连接 host:port，失败返回 -1
+static int Connect(const char* host, const char* port) {
+  addrinfo hints{};
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
 
-namespace {
+  addrinfo* result = nullptr;
+  if (getaddrinfo(host, port, &hints, &result) != 0) return -1;
 
-constexpr int kReadTimeoutMs = 3000;
-
-// 等待 socket 可读，最多 timeout_ms 毫秒；可读返回 true，超时/出错返回 false。
-bool WaitReadable(asio::ip::tcp::socket& socket, int timeout_ms) {
-  struct pollfd pfd{};
-  pfd.fd = socket.native_handle();
-  pfd.events = POLLIN;
-  int ret = ::poll(&pfd, 1, timeout_ms);
-  if (ret <= 0) {
-    return false;
+  int fd = -1;
+  for (addrinfo* it = result; it != nullptr; it = it->ai_next) {
+    fd = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
+    if (fd < 0) continue;
+    if (connect(fd, it->ai_addr, it->ai_addrlen) == 0) break;
+    close(fd);
+    fd = -1;
   }
-  return (pfd.revents & POLLIN) != 0;
+
+  freeaddrinfo(result);
+  return fd;
 }
 
-// 从 socket 上读取一个完整的 TLV；成功返回 true，失败/超时返回 false。
-bool ReadOneTlv(asio::ip::tcp::socket& socket, TlvMessage& msg,
-                int timeout_ms) {
-  if (!WaitReadable(socket, timeout_ms)) {
-    std::cout << "  (no response within " << timeout_ms << " ms)\n";
-    return false;
+/// @brief 把字节串转成十六进制字符串，方便回显
+static std::string ToHex(std::string_view data) {
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string result;
+  result.reserve(data.size() * 2);
+  for (unsigned char byte : data) {
+    result.push_back(kHex[byte >> 4]);
+    result.push_back(kHex[byte & 0x0f]);
   }
-
-  std::error_code ec;
-  asio::read(socket, asio::buffer(msg.mutable_tag(), sizeof(TlvMessage::TagT)),
-             ec);
-  if (ec) {
-    std::cerr << "  read tag failed: " << ec.message() << "\n";
-    return false;
-  }
-  msg.set_tag(be16toh(msg.tag()));
-
-  TlvMessage::LengthT msg_len{0};
-  asio::read(socket, asio::buffer(&msg_len, sizeof(TlvMessage::LengthT)), ec);
-  if (ec) {
-    std::cerr << "  read length failed: " << ec.message() << "\n";
-    return false;
-  }
-  msg_len = be16toh(msg_len);
-
-  msg.mutable_value()->resize(msg_len);
-  asio::read(socket, asio::buffer(msg.mutable_value()->data(), msg.length()),
-             ec);
-  if (ec) {
-    std::cerr << "  read value failed: " << ec.message() << "\n";
-    return false;
-  }
-  return true;
+  return result;
 }
-
-// 打印一个 TLV；可打印字符原样输出，不可打印字符输出为 \xNN。
-void PrintTlv(const TlvMessage& msg) {
-  std::cout << "  resp: tag=0x" << std::hex << msg.tag() << std::dec
-            << " length=" << msg.length() << " value=\"";
-  for (unsigned char c : msg.value()) {
-    if (c >= 0x20 && c <= 0x7e) {
-      std::cout << static_cast<char>(c);
-    } else {
-      std::cout << "\\x" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<int>(c) << std::dec << std::setfill(' ');
-    }
-  }
-  std::cout << "\"\n";
-}
-
-// 解析一行输入，成功返回 true 并填充 msg。
-bool ParseLine(const std::string& line, TlvMessage& msg) {
-  std::istringstream iss(line);
-  std::string tag_token;
-  std::string len_token;
-  if (!(iss >> tag_token >> len_token)) {
-    std::cerr << "  bad input: expected \"<tag(hex)> <length(dec)> <value>\"\n";
-    return false;
-  }
-
-  uint32_t tag = 0;
-  uint32_t len = 0;
-  try {
-    tag = static_cast<uint32_t>(std::stoul(tag_token, nullptr, 16));
-    len = static_cast<uint32_t>(std::stoul(len_token, nullptr, 10));
-  } catch (const std::exception&) {
-    std::cerr << "  bad input: cannot parse tag/length\n";
-    return false;
-  }
-  if (tag > 0xFFFFu) {
-    std::cerr << "  bad input: tag out of range (0x0000 ~ 0xFFFF)\n";
-    return false;
-  }
-  if (len > 0xFFFFu) {
-    std::cerr << "  bad input: length out of range (0 ~ 65535)\n";
-    return false;
-  }
-
-  // 剩余部分即 Value；去掉开头的空白。
-  std::string value;
-  std::getline(iss, value);
-  std::size_t start = value.find_first_not_of(" \t");
-  if (start != std::string::npos) {
-    value = value.substr(start);
-  } else {
-    value.clear();
-  }
-
-  if (value.size() < len) {
-    std::cerr << "  bad input: value too short, expected " << len
-              << " bytes but got " << value.size() << "\n";
-    return false;
-  }
-  if (value.size() > len) {
-    std::cout << "  (note: value truncated from " << value.size() << " to "
-              << len << " bytes)\n";
-    value.resize(len);
-  }
-
-  msg.set_tag(static_cast<TlvMessage::TagT>(tag));
-  msg.set_value(value);
-  return true;
-}
-
-}  // namespace
 
 int main(int argc, char* argv[]) {
-  if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " <host> <port>\n";
-    std::cerr << "Example: " << argv[0] << " 127.0.0.1 35565\n";
+  const char* host = argc > 1 ? argv[1] : "localhost";
+  const char* port = argc > 2 ? argv[2] : "35565";
+
+  int fd = Connect(host, port);
+  if (fd < 0) {
+    std::cerr << "connect " << host << ":" << port << " failed\n";
     return 1;
   }
 
-  try {
-    asio::io_context io_context;
-    asio::ip::tcp::socket socket(io_context);
+  // 每输入一行发送一条消息，输入结束(EOF)后退出
+  std::string line;
+  while (std::getline(std::cin, line)) {
+    std::istringstream iss(line);
+    std::string tag_str;
+    std::string length_str;
+    if (!(iss >> tag_str >> length_str)) continue;
 
-    asio::ip::tcp::resolver resolver(io_context);
-    auto endpoints = resolver.resolve(argv[1], argv[2]);
-    asio::connect(socket, endpoints);
+    auto tag =
+        static_cast<uint16_t>(std::strtoul(tag_str.c_str(), nullptr, 16));
+    auto length =
+        static_cast<uint16_t>(std::strtoul(length_str.c_str(), nullptr, 10));
 
-    std::cout << "Connected to " << argv[1] << ":" << argv[2] << "\n";
-    std::cout << "Input format: <tag(hex)> <length(dec)> <value>\n";
-    std::cout << "Example: 0x1234 5 ABCDE\n";
-    std::cout << "Empty line to skip, Ctrl+D to exit.\n";
+    // 剩下的全部内容作为 value
+    std::string value;
+    std::getline(iss >> std::ws, value);
 
-    std::string line;
-    while (std::getline(std::cin, line)) {
-      if (line.empty()) {
-        continue;
-      }
+    // 组装 TLV 消息：tag(u16 大端) + length(u16 大端) + value
+    std::string message;
+    auto be_tag = htons(tag);
+    auto be_length = htons(length);
+    message.append(reinterpret_cast<const char*>(&be_tag), sizeof(be_tag));
+    message.append(reinterpret_cast<const char*>(&be_length),
+                   sizeof(be_length));
+    message.append(value);
 
-      TlvMessage msg;
-      if (!ParseLine(line, msg)) {
-        continue;
-      }
-
-      std::string serialized = msg.SerializeToString();
-      asio::write(socket, asio::buffer(serialized));
-      std::cout << "  sent:   tag=0x" << std::hex << msg.tag() << std::dec
-                << " length=" << msg.length() << " value=\"" << msg.value()
-                << "\"\n";
-
-      TlvMessage resp;
-      if (ReadOneTlv(socket, resp, kReadTimeoutMs)) {
-        PrintTlv(resp);
-      }
+    if (send(fd, message.data(), message.size(), 0) !=
+        static_cast<ssize_t>(message.size())) {
+      std::cerr << "send failed\n";
+      break;
     }
 
-    std::error_code ignored_ec;
-    socket.shutdown(asio::socket_base::shutdown_both, ignored_ec);
-    socket.close(ignored_ec);
-  } catch (const std::exception& e) {
-    std::cerr << "Exception: " << e.what() << "\n";
-    return 1;
+    // 接收一条响应：tag(u16 大端) + length(u16 大端) + value
+    uint16_t be_resp_tag = 0;
+    uint16_t be_resp_length = 0;
+    if (recv(fd, &be_resp_tag, sizeof(be_resp_tag), MSG_WAITALL) !=
+            static_cast<ssize_t>(sizeof(be_resp_tag)) ||
+        recv(fd, &be_resp_length, sizeof(be_resp_length), MSG_WAITALL) !=
+            static_cast<ssize_t>(sizeof(be_resp_length))) {
+      std::cerr << "recv failed\n";
+      break;
+    }
+
+    auto resp_tag = ntohs(be_resp_tag);
+    auto resp_length = ntohs(be_resp_length);
+
+    std::string resp_value(resp_length, '\0');
+    if (resp_length > 0 &&
+        recv(fd, resp_value.data(), resp_length, MSG_WAITALL) !=
+            static_cast<ssize_t>(resp_length)) {
+      std::cerr << "recv failed\n";
+      break;
+    }
+
+    std::cout << "recv: tag=0x" << std::hex << resp_tag << std::dec
+              << " length=" << resp_length << " value=" << ToHex(resp_value)
+              << "\n";
   }
 
+  close(fd);
   return 0;
 }
