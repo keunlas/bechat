@@ -19,7 +19,7 @@ class ServerContexts {
    * @param message Session 收到的数据
    */
   void OnSessionMessage(const std::weak_ptr<SessionHandle>& session_handle,
-                        std::string message);
+                        uint16_t message_tag, std::string message_value);
 
   /**
    * @brief 处理 Session 关闭

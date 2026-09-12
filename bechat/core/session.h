@@ -4,6 +4,7 @@
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 #include <atomic>
+#include <bit>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -63,6 +64,7 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
   // TLV 协议各字段大小
   static constexpr uint16_t kTagSize{sizeof(uint16_t)};
   static constexpr uint16_t kLengthSize{sizeof(uint16_t)};
+  static constexpr uint16_t kHeaderSize{kTagSize + kLengthSize};
   static constexpr uint16_t kMaxValueSize{std::numeric_limits<uint16_t>::max()};
 
   // 每次读取的块的大小
@@ -217,15 +219,38 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
    *
    */
   void on_read_completed() {
-    if (streambuf_.size() == 0) return;
-
-    // [TODO] 暂时是取出缓冲区中的全部内容，后续会在这里分割一条 TLV 再传出去
-    std::string msg(streambuf_.size(), '\0');
-    asio::buffer_copy(asio::buffer(msg), streambuf_.data(), streambuf_.size());
-    streambuf_.consume(streambuf_.size());
-
     auto self(this->shared_from_this());
-    server_contexts_.OnSessionMessage(self, std::move(msg));
+    for (;;) {
+      if (closing_.load() || closed_.load()) return;
+
+      // 检查 Tag 和 Length 字段
+      if (streambuf_.size() < kHeaderSize) return;
+
+      // 取出 Tag 和 Length 字段
+      std::string header(kHeaderSize, '\0');
+      asio::buffer_copy(asio::buffer(header), streambuf_.data(), kHeaderSize);
+      auto tag = *reinterpret_cast<uint16_t*>(header.data());
+      auto len = *reinterpret_cast<uint16_t*>(header.data() + kTagSize);
+      if constexpr (std::endian::native != std::endian::big) {
+        tag = std::byteswap(tag);
+        len = std::byteswap(len);
+      }
+
+      // 检查 Value 字段
+      std::size_t msg_len = kHeaderSize + len;
+      if (streambuf_.size() < msg_len) return;
+
+      // 取出 Value 字段
+      std::string val(len, '\0');
+      asio::buffer_copy(asio::buffer(val), streambuf_.data() + kHeaderSize,
+                        len);
+
+      // 消费缓冲区中相应的字符
+      streambuf_.consume(msg_len);
+
+      // 送出 tag 和 value 到 server_contexts_
+      server_contexts_.OnSessionMessage(self, tag, std::move(val));
+    }
   }
 
   /**
