@@ -13,6 +13,11 @@ target_sources(bechat PRIVATE
 target_sources(bechat PRIVATE
   utils/logger.cpp
   utils/config.cpp
+  utils/global.cpp
+)
+
+target_sources(bechat PRIVATE
+  service/user_registry.cpp
 )
 
 target_sources(bechat PRIVATE
@@ -26,3 +31,6 @@ target_sources(bechat PRIVATE
 
 # Link OpenSSL
 target_link_libraries(bechat PRIVATE ssl crypto)
+
+# Link libsodium
+target_link_libraries(bechat PRIVATE sodium)
