@@ -8,6 +8,12 @@
 class Config {
  public:
   /**
+   * @brief 进行配置文件的初始化
+   *
+   */
+  static void Init();
+
+  /**
    * @brief 获取配置对象的全局唯一实例
    *
    * @return betools::Config&
@@ -20,6 +26,13 @@ class Config {
    * @return const std::string&
    */
   static const std::string& CfgPath();
+
+  /**
+   * @brief 获取 BeChat 的配置文件路径
+   *
+   * @return const std::string&
+   */
+  static const std::string& CfgFilePath();
 };
 
 #define CFG_SSL_CERT Config::Instance().GetValue("ssl.cert")
