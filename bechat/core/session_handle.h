@@ -51,6 +51,35 @@ class SessionHandle {
    * @return uint64_t
    */
   virtual uint64_t Id() const = 0;
+
+  /**
+   * @brief 获取该 Session 是否经过登录验证
+   *
+   * @return true
+   * @return false
+   */
+  virtual bool IsAuthorized() = 0;
+
+  /**
+   * @brief 获取该 Session 的用户名（前提该 Session 已登录，否则返回可能为空）
+   *
+   * @return const std::string&
+   */
+  virtual const std::string& Username() = 0;
+
+  /**
+   * @brief 使 Session 登录验证
+   *
+   * @param username
+   */
+  virtual void SetAuthorized(std::string username) = 0;
+
+  /**
+   * @brief 取消 Session 登录验证
+   *
+   * @param username
+   */
+  virtual void SetUnauthorized() = 0;
 };
 
 #endif  // !BECHAT_CORE_SESSION_HANDLE_H_

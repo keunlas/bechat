@@ -10,10 +10,12 @@ uint32_t UserRegisty::Signup(const std::string& username,
   try {
     std::lock_guard guard(user_records_mtx_);
 
+    if (username.empty()) return BECHAT_STATUS_INVALID_PARAMS;
+    if (username.size() > kMaxUsernameSize) return BECHAT_STATUS_INVALID_PARAMS;
+
     // 1. 查找 user 是否已经注册
-    if (username.empty()) return BECHAT_STATUS_SIGNUP_FAIL;
     auto it = user_records_.find(username);
-    if (it != user_records_.end()) return BECHAT_STATUS_SIGNUP_FAIL;
+    if (it != user_records_.end()) return BECHAT_STATUS_EXISTED_USER;
 
     // 2. 计算 password 哈希
     std::string hash(crypto_pwhash_STRBYTES, '\0');
@@ -27,7 +29,7 @@ uint32_t UserRegisty::Signup(const std::string& username,
     auto [rec_it, inserted] =
         user_records_.try_emplace(username, username, std::move(hash));
     (void)rec_it;
-    if (!inserted) return BECHAT_STATUS_SIGNUP_FAIL;
+    if (!inserted) return BECHAT_STATUS_EXISTED_USER;
 
     // 4. 返回状态码
     return BECHAT_STATUS_SUCCESS;

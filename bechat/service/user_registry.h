@@ -18,6 +18,9 @@ struct UserRecord {
 
 class UserRegisty {
  public:
+  static constexpr uint16_t kMaxUsernameSize{32};
+
+ public:
   /**
    * @brief 注册用户
    *

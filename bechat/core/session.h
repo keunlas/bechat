@@ -168,6 +168,49 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
    */
   uint64_t Id() const override { return id_; }
 
+  /**
+   * @brief 获取该 Session 是否经过登录验证
+   *
+   * @return true
+   * @return false
+   */
+  bool IsAuthorized() override {
+    std::lock_guard guard(auth_mtx_);
+    return authorized_;
+  }
+
+  /**
+   * @brief 获取该 Session 的用户名（前提该 Session 已登录，否则返回可能为空）
+   *
+   * @return const std::string&
+   */
+  const std::string& Username() override {
+    std::lock_guard guard(auth_mtx_);
+    return username_;
+  }
+
+  /**
+   * @brief 使 Session 登录验证
+   *
+   * @param username
+   */
+  void SetAuthorized(std::string username) override {
+    std::lock_guard guard(auth_mtx_);
+    authorized_ = true;
+    username_ = std::move(username);
+  }
+
+  /**
+   * @brief 取消 Session 登录验证
+   *
+   * @param username
+   */
+  void SetUnauthorized() override {
+    std::lock_guard guard(auth_mtx_);
+    authorized_ = false;
+    username_.clear();
+  }
+
  private:
   /**
    * @brief 仅当该 Session 为 SslSession 时调用
@@ -478,6 +521,11 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
 
   // Session 的自增 id，创建时分配，用来区分不同的 Session
   const uint64_t id_{NextSessionId()};
+
+  // Session 登录验证相关的成员变量
+  std::mutex auth_mtx_{};
+  bool authorized_{false};
+  std::string username_{};
 
   // 串行化该 Session 的读写操作
   asio::strand<asio::any_io_executor> strand_;
