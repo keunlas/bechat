@@ -86,23 +86,28 @@ void ServerContexts::handle_login(std::shared_ptr<SessionHandle> session,
                                           params = std::move(params)]() {
     try {
       uint32_t status_code{BECHAT_STATUS_SUCCESS};
+      std::pair<std::string, std::string> tokens{};
       if (session->IsAuthorized()) {
         status_code = BECHAT_STATUS_ALREADY_LOGIN;
       } else {
-        status_code = user_registry_.Login(params.username, params.password);
+        status_code = user_registry_.Login(params.username, params.password,
+                                           session, &tokens);
       }
 
       nlohmann::json jvalue = nlohmann::json::object();
       jvalue["request_id"] = params.request_id;
       jvalue["status_code"] = status_code;
+
+      // JWT
+      if (status_code == BECHAT_STATUS_SUCCESS) {
+        jvalue["refresh_token"] = std::move(tokens.first);
+        jvalue["access_token"] = std::move(tokens.second);
+      }
+
       std::string value{jvalue.dump()};
 
       auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_LOGIN, value);
       session->Send(std::move(resp));
-
-      if (status_code == BECHAT_STATUS_SUCCESS) {
-        session->SetAuthorized(params.username);
-      }
 
     } catch (const std::exception& e) {
       ERROR("ServerContexts::handle_signup error: {}", e.what());

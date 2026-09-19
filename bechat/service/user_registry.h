@@ -4,9 +4,12 @@
 #include <sodium.h>
 
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+
+#include "bechat/core/session_handle.h"
 
 struct UserRecord {
   std::string username;
@@ -37,7 +40,30 @@ class UserRegisty {
    * @param password 密码
    * @return 状态码
    */
-  uint32_t Login(const std::string& username, const std::string& password);
+  uint32_t Login(const std::string& username, const std::string& password,
+                 std::shared_ptr<SessionHandle> session,
+                 std::pair<std::string, std::string>* tokens = nullptr);
+
+  /**
+   * @brief 验证用户
+   *
+   * @param session
+   * @param access_token
+   * @return 状态码
+   */
+  uint32_t Verify(std::shared_ptr<SessionHandle> session,
+                  const std::string& access_token);
+
+  /**
+   * @brief 更新用户 access_token
+   *
+   * @param session
+   * @param refresh_token
+   * @param [out] access_token
+   * @return 状态码
+   */
+  uint32_t Refresh(std::shared_ptr<SessionHandle> session,
+                   const std::string& refresh_token, std::string& access_token);
 
  private:
   std::unordered_map<std::string /* username */, UserRecord> user_records_{};

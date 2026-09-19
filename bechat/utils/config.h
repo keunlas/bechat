@@ -39,6 +39,9 @@ class Config {
 #define CFG_SSL_KEY Config::Instance().GetValue("ssl.key")
 #define CFG_SSL_DH Config::Instance().GetValue("ssl.dh")
 
+#define CFG_JWT_SECRET_ACCESS Config::Instance().GetValue("jwt.secret.access")
+#define CFG_JWT_SECRET_REFRESH Config::Instance().GetValue("jwt.secret.refresh")
+
 #define CFG_SERVER_IO_THREADS Config::Instance().GetAs<int>("server.io_threads")
 #define CFG_SERVER_IP Config::Instance().GetValue("server.ip")
 #define CFG_SERVER_PORT Config::Instance().GetAs<uint16_t>("server.port")
@@ -47,5 +50,7 @@ class Config {
 
 #define CFG_LOG_LEVEL Config::Instance().GetAs<int>("log.level")
 #define CFG_LOG_FLUSH_ON Config::Instance().GetAs<int>("log.flush_on")
+
+#define CFG_VERSION Config::Instance().GetValue("version")
 
 #endif  // !BECHAT_UTILS_CONFIG_H_

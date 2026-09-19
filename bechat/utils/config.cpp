@@ -10,6 +10,10 @@ ssl.cert  = /home/keunlas/MyCA/localhost.crt
 ssl.key   = /home/keunlas/MyCA/localhost.key
 ssl.dh    = /home/keunlas/MyCA/dh4096.pem
 
+# JWT Secret
+jwt.secret.access = please-set-a-secret
+jwt.secret.refresh = please-set-a-secret
+
 server.io_threads = 4
 server.ip					= 127.0.0.1
 server.port				= 35565
@@ -18,6 +22,8 @@ server.ssl_port		= 35566
 # 0-trace | 1-debug | 2-info | 3-warn | 4-error | 5-critical
 log.level				= 0
 log.flush_on		= 4
+
+version = v0.0.1
 
 )=="};
 
