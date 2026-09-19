@@ -11,6 +11,7 @@ uint32_t UserRegisty::Signup(const std::string& username,
     std::lock_guard guard(user_records_mtx_);
 
     // 1. 查找 user 是否已经注册
+    if (username.empty()) return BECHAT_STATUS_SIGNUP_FAIL;
     auto it = user_records_.find(username);
     if (it != user_records_.end()) return BECHAT_STATUS_SIGNUP_FAIL;
 
