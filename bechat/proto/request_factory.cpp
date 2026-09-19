@@ -27,6 +27,11 @@ std::expected<RequestParams, uint32_t /* StatusCode */> RequestFactory::Parse(
         return RequestParams{std::in_place_type<LoginParams>,
                              std::move(params)};
       } break;
+      case BECHAT_TAG_REFRESH: {
+        RefreshParams params(request_id, val["refresh_token"]);
+        return RequestParams{std::in_place_type<RefreshParams>,
+                             std::move(params)};
+      } break;
       default:
         return std::unexpected{BECHAT_STATUS_UNSUPPORTED_TAG};
         break;

@@ -27,9 +27,18 @@ struct LoginParams {
         password(std::move(passwd)) {}
 };
 
+struct RefreshParams {
+  uint32_t request_id;
+  std::string refresh_token;
+
+  RefreshParams(uint32_t req_id, std::string refresh_tok)
+      : request_id(req_id), refresh_token(std::move(refresh_tok)) {}
+};
+
 using RequestParams = std::variant<               /* 请求参数的各种变体 */
                                    SignupParams,  // 注册参数
-                                   LoginParams    // 登录参数
+                                   LoginParams,   // 登录参数
+                                   RefreshParams  // 刷新参数
                                    >;
 
 #endif  // BECHAT_PROTO_REQUEST_PARAMS_H_

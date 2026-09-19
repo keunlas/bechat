@@ -33,6 +33,7 @@ class ServerContexts {
  private: /* handle 系列函数的参数应当采用值传递，可使用右值优化 */
   void handle_signup(std::shared_ptr<SessionHandle>, SignupParams);
   void handle_login(std::shared_ptr<SessionHandle>, LoginParams);
+  void handle_refresh(std::shared_ptr<SessionHandle>, RefreshParams);
 
  private:
   IoContexts& io_context_;
