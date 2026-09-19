@@ -5,8 +5,8 @@
 #include "bechat/proto/status_code.h"
 #include "bechat/utils/logger.h"
 
-int UserRegisty::Signup(const std::string& username,
-                        const std::string& password) {
+uint32_t UserRegisty::Signup(const std::string& username,
+                             const std::string& password) {
   try {
     std::lock_guard guard(user_records_mtx_);
 
@@ -23,8 +23,10 @@ int UserRegisty::Signup(const std::string& username,
     hash.resize(std::strlen(hash.c_str()));
 
     // 3. 存储用户记录
-    UserRecord rec(username, std::move(hash));
-    user_records_[username] = std::move(rec);
+    auto [rec_it, inserted] =
+        user_records_.try_emplace(username, username, std::move(hash));
+    (void)rec_it;
+    if (!inserted) return BECHAT_STATUS_SIGNUP_FAIL;
 
     // 4. 返回状态码
     return BECHAT_STATUS_SUCCESS;
@@ -34,8 +36,8 @@ int UserRegisty::Signup(const std::string& username,
   }
 }
 
-int UserRegisty::Verify(const std::string& username,
-                        const std::string& password) {
+uint32_t UserRegisty::Verify(const std::string& username,
+                             const std::string& password) {
   try {
     std::lock_guard guard(user_records_mtx_);
 

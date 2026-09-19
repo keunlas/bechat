@@ -1,23 +1,30 @@
 #if !defined(BECHAT_PROTO_REQUEST_PARAMS_H_)
 #define BECHAT_PROTO_REQUEST_PARAMS_H_
 
+#include <cstdint>
 #include <string>
 #include <variant>
 
 struct SignupParams {
+  uint32_t request_id;
   std::string username;
   std::string password;
 
-  SignupParams(std::string uname, std::string passwd)
-      : username(std::move(uname)), password(std::move(passwd)) {}
+  SignupParams(uint32_t req_id, std::string uname, std::string passwd)
+      : request_id(req_id),
+        username(std::move(uname)),
+        password(std::move(passwd)) {}
 };
 
 struct LoginParams {
+  uint32_t request_id;
   std::string username;
   std::string password;
 
-  LoginParams(std::string uname, std::string passwd)
-      : username(std::move(uname)), password(std::move(passwd)) {}
+  LoginParams(uint32_t req_id, std::string uname, std::string passwd)
+      : request_id(req_id),
+        username(std::move(uname)),
+        password(std::move(passwd)) {}
 };
 
 using RequestParams = std::variant<               /* 请求参数的各种变体 */

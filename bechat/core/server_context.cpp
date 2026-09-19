@@ -4,7 +4,18 @@
 #include <utility>
 
 #include "bechat/proto/message_tag.h"
+#include "bechat/proto/request_factory.h"
+#include "bechat/proto/response_factory.h"
 #include "bechat/proto/status_code.h"
+#include "bechat/utils/logger.h"
+
+template <typename... Ts>
+struct Overloaded : Ts... {
+  using Ts::operator()...;
+};
+
+template <typename... Ts>
+Overloaded(Ts...) -> Overloaded<Ts...>;
 
 ServerContexts::ServerContexts(IoContexts& io_context)
     : io_context_(io_context) {}
@@ -16,36 +27,57 @@ void ServerContexts::OnSessionMessage(
   if (!session) return;
 
   // [TODO]
-  asio::post(io_context_.GetIoContext(), [this, session, message_tag,
-                                          message_value =
-                                              std::move(message_value)]() {
-    switch (message_tag) {
-      case BECHAT_TAG_SIGNUP: {
-        nlohmann::json value = nlohmann::json::parse(message_value);
-        auto ret = user_registry_.Signup(value["username"], value["password"]);
-        if (ret == BECHAT_STATUS_SUCCESS) {
-          std::string str = {'\x00', '\x01', '\x00', '\x02', 'O', 'K'};
-          session->Send(std::move(str));
-        } else {
-          std::string str = {'\x00', '\x01', '\x00', '\x02', 'N', 'O'};
-          session->Send(std::move(str));
-        }
-      } break;
-      case BECHAT_TAG_LOGIN: {
-        nlohmann::json value = nlohmann::json::parse(message_value);
-        auto ret = user_registry_.Verify(value["username"], value["password"]);
-        if (ret == BECHAT_STATUS_SUCCESS) {
-          std::string str = {'\x00', '\x02', '\x00', '\x02', 'O', 'K'};
-          session->Send(std::move(str));
-        } else {
-          std::string str = {'\x00', '\x02', '\x00', '\x02', 'N', 'O'};
-          session->Send(std::move(str));
-        }
-      } break;
-      default:
-        session->Send(std::move(message_value));
-        break;
+  asio::post(io_context_.GetIoContext(), [this, session, tag = message_tag,
+                                          value = std::move(message_value)]() {
+    // switch (message_tag) {
+    //   case BECHAT_TAG_SIGNUP: {
+    //     nlohmann::json value = nlohmann::json::parse(message_value);
+    //     auto ret = user_registry_.Signup(value["username"],
+    //     value["password"]); if (ret == BECHAT_STATUS_SUCCESS) {
+    //       std::string str = {'\x00', '\x01', '\x00', '\x02', 'O', 'K'};
+    //       session->Send(std::move(str));
+    //     } else {
+    //       std::string str = {'\x00', '\x01', '\x00', '\x02', 'N', 'O'};
+    //       session->Send(std::move(str));
+    //     }
+    //   } break;
+    //   case BECHAT_TAG_LOGIN: {
+    //     nlohmann::json value = nlohmann::json::parse(message_value);
+    //     auto ret = user_registry_.Verify(value["username"],
+    //     value["password"]); if (ret == BECHAT_STATUS_SUCCESS) {
+    //       std::string str = {'\x00', '\x02', '\x00', '\x02', 'O', 'K'};
+    //       session->Send(std::move(str));
+    //     } else {
+    //       std::string str = {'\x00', '\x02', '\x00', '\x02', 'N', 'O'};
+    //       session->Send(std::move(str));
+    //     }
+    //   } break;
+    //   default:
+    //     session->Send(std::move(message_value));
+    //     break;
+    // }
+    uint32_t request_id{0};
+    auto res = RequestFactory::Parse(tag, value, &request_id);
+
+    if (!res) {
+      uint32_t status_code = res.error();
+      auto error = ResponseFactory::MakeError(tag, request_id, status_code);
+      session->Send(std::move(error));
+      return;
     }
+
+    std::visit(
+        Overloaded{
+            [&](const SignupParams& p) {
+              std::string str = {'\x00', '\x01', '\x00', '\x02', 'O', 'K'};
+              session->Send(std::move(str));
+            },
+            [&](const LoginParams& p) {
+              std::string str = {'\x00', '\x02', '\x00', '\x02', 'O', 'K'};
+              session->Send(std::move(str));
+            },
+        },
+        *res);
   });
 }
 

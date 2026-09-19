@@ -3,6 +3,7 @@
 
 #include <sodium.h>
 
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -24,7 +25,7 @@ class UserRegisty {
    * @param password 密码
    * @return 状态码
    */
-  int Signup(const std::string& username, const std::string& password);
+  uint32_t Signup(const std::string& username, const std::string& password);
 
   /**
    * @brief 验证用户
@@ -33,7 +34,7 @@ class UserRegisty {
    * @param password 密码
    * @return 状态码
    */
-  int Verify(const std::string& username, const std::string& password);
+  uint32_t Verify(const std::string& username, const std::string& password);
 
  private:
   std::unordered_map<std::string /* username */, UserRecord> user_records_{};

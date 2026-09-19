@@ -21,12 +21,8 @@ target_sources(bechat PRIVATE
 )
 
 target_sources(bechat PRIVATE
-  # tlv/tlv_message.cpp
-  # tlv/tlv_codec.cpp
-)
-
-target_sources(bechat PRIVATE
-  # proto/request_message.cpp
+  proto/request_factory.cpp
+  proto/response_factory.cpp
 )
 
 # Link OpenSSL
