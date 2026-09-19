@@ -1,6 +1,10 @@
 #include "bechat/core/server_context.h"
 
+#include <nlohmann/json.hpp>
 #include <utility>
+
+#include "bechat/proto/message_tag.h"
+#include "bechat/proto/status_code.h"
 
 ServerContexts::ServerContexts(IoContexts& io_context)
     : io_context_(io_context) {}
@@ -11,9 +15,38 @@ void ServerContexts::OnSessionMessage(
   auto session = session_handle.lock();
   if (!session) return;
 
-  // [TODO] 暂时使用 ECHO 逻辑，后续在这里解析消息并分发请求
-  (void)message_tag;
-  session->Send(std::move(message_value));
+  // [TODO]
+  asio::post(io_context_.GetIoContext(), [this, session, message_tag,
+                                          message_value =
+                                              std::move(message_value)]() {
+    switch (message_tag) {
+      case BECHAT_TAG_SIGNUP: {
+        nlohmann::json value = nlohmann::json::parse(message_value);
+        auto ret = user_registry_.Signup(value["username"], value["password"]);
+        if (ret == BECHAT_STATUS_SUCCESS) {
+          std::string str = {'\x00', '\x01', '\x00', '\x02', 'O', 'K'};
+          session->Send(std::move(str));
+        } else {
+          std::string str = {'\x00', '\x01', '\x00', '\x02', 'N', 'O'};
+          session->Send(std::move(str));
+        }
+      } break;
+      case BECHAT_TAG_LOGIN: {
+        nlohmann::json value = nlohmann::json::parse(message_value);
+        auto ret = user_registry_.Verify(value["username"], value["password"]);
+        if (ret == BECHAT_STATUS_SUCCESS) {
+          std::string str = {'\x00', '\x02', '\x00', '\x02', 'O', 'K'};
+          session->Send(std::move(str));
+        } else {
+          std::string str = {'\x00', '\x02', '\x00', '\x02', 'N', 'O'};
+          session->Send(std::move(str));
+        }
+      } break;
+      default:
+        session->Send(std::move(message_value));
+        break;
+    }
+  });
 }
 
 void ServerContexts::OnSessionClose(

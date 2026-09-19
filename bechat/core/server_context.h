@@ -7,6 +7,7 @@
 
 #include "bechat/core/io_contexts.h"
 #include "bechat/core/session_handle.h"
+#include "bechat/service/user_registry.h"
 
 class ServerContexts {
  public:
@@ -30,6 +31,7 @@ class ServerContexts {
 
  private:
   IoContexts& io_context_;
+  UserRegisty user_registry_{};
 };
 
 #endif  // !BECHAT_CORE_SERVER_CONTEXT_H_
