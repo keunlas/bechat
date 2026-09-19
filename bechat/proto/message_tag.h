@@ -1,6 +1,7 @@
 #if !defined(BECHAT_PROTO_MESSAGE_TAG_H_)
 #define BECHAT_PROTO_MESSAGE_TAG_H_
 
+// Reserved
 #define BECHAT_TAG_RESERVED 0x0000
 
 // Session & Account

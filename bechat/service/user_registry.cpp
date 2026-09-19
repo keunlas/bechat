@@ -23,7 +23,7 @@ int UserRegisty::Signup(const std::string& username,
     hash.resize(std::strlen(hash.c_str()));
 
     // 3. 存储用户记录
-    UserRecord rec{username, hash};
+    UserRecord rec(username, std::move(hash));
     user_records_[username] = std::move(rec);
 
     // 4. 返回状态码

@@ -10,6 +10,9 @@
 struct UserRecord {
   std::string username;
   std::string password_hash;
+
+  UserRecord(std::string user_name, std::string passwd_hash)
+      : username(std::move(user_name)), password_hash(std::move(passwd_hash)) {}
 };
 
 class UserRegisty {

@@ -1,15 +1,19 @@
 #if !defined(BECHAT_PROTO_STATUS_CODE_H_)
 #define BECHAT_PROTO_STATUS_CODE_H_
 
+// Success
 #define BECHAT_STATUS_SUCCESS 0x0000
 
-#define BECHAT_STATUS_INVALID_TAG 0x0001
-#define BECHAT_STATUS_UNSUPPORTED_TAG 0x0002
+// Tlv Parse Error
+#define BECHAT_STATUS_INVALID_TAG 0x0001      // for Session read tag stage
+#define BECHAT_STATUS_UNSUPPORTED_TAG 0x0002  // for RequestFactory parse stage
 #define BECHAT_STATUS_MALFORMED_PAYLOAD 0x0003
 
+// User Registry Error
 #define BECHAT_STATUS_SIGNUP_FAIL 0x0101
 #define BECHAT_STATUS_LOGIN_FAIL 0x0102
 
+// Server Internal Error
 #define BECHAT_STATUS_INTERNAL_ERROR 0x7FFF
 
 #endif  // BECHAT_PROTO_STATUS_CODE_H_
