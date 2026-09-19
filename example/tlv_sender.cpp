@@ -131,8 +131,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "recv: tag=0x" << std::hex << resp_tag << std::dec
-              << " length=" << resp_length << " value=" << ToHex(resp_value)
-              << "\n";
+              << " length=" << resp_length << " hex_value=" << ToHex(resp_value)
+              << " value=" << resp_value << "\n";
   }
 
   close(fd);

@@ -66,18 +66,11 @@ void ServerContexts::OnSessionMessage(
       return;
     }
 
-    std::visit(
-        Overloaded{
-            [&](const SignupParams& p) {
-              std::string str = {'\x00', '\x01', '\x00', '\x02', 'O', 'K'};
-              session->Send(std::move(str));
-            },
-            [&](const LoginParams& p) {
-              std::string str = {'\x00', '\x02', '\x00', '\x02', 'O', 'K'};
-              session->Send(std::move(str));
-            },
-        },
-        *res);
+    std::visit(Overloaded{
+                   [&](SignupParams p) { handle_signup(session, p); },
+                   [&](LoginParams p) { handle_login(session, p); },
+               },
+               *res);
   });
 }
 
@@ -88,4 +81,54 @@ void ServerContexts::OnSessionClose(
 
   // [TODO] 暂时不需要处理 Session 关闭，后续可以在这里清理该 Session 的数据
   //        （比如在线用户列表、订阅关系等）
+}
+
+void ServerContexts::handle_signup(std::shared_ptr<SessionHandle> session,
+                                   SignupParams params) {
+  asio::post(io_context_.GetIoContext(), [this, session,
+                                          params = std::move(params)]() {
+    try {
+      uint32_t status_code =
+          user_registry_.Signup(params.username, params.password);
+
+      nlohmann::json jvalue = nlohmann::json::object();
+      jvalue["request_id"] = params.request_id;
+      jvalue["status_code"] = status_code;
+      std::string value{jvalue.dump()};
+
+      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_SIGNUP, value);
+      session->Send(std::move(resp));
+
+    } catch (const std::exception& e) {
+      ERROR("ServerContexts::handle_signup error: {}", e.what());
+      session->Send(ResponseFactory::MakeError(
+          BECHAT_TAG_SIGNUP, params.request_id, BECHAT_STATUS_INTERNAL_ERROR));
+    }
+  });
+}
+
+void ServerContexts::handle_login(std::shared_ptr<SessionHandle> session,
+                                  LoginParams params) {
+  // auto status = user_registry_.Signup(params.username, params.password);
+  // session->Send(MakeResponseFrame(request_tag, status));
+  asio::post(io_context_.GetIoContext(), [this, session,
+                                          params = std::move(params)]() {
+    try {
+      uint32_t status_code =
+          user_registry_.Verify(params.username, params.password);
+
+      nlohmann::json jvalue = nlohmann::json::object();
+      jvalue["request_id"] = params.request_id;
+      jvalue["status_code"] = status_code;
+      std::string value{jvalue.dump()};
+
+      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_LOGIN, value);
+      session->Send(std::move(resp));
+
+    } catch (const std::exception& e) {
+      ERROR("ServerContexts::handle_signup error: {}", e.what());
+      session->Send(ResponseFactory::MakeError(
+          BECHAT_TAG_LOGIN, params.request_id, BECHAT_STATUS_INTERNAL_ERROR));
+    }
+  });
 }

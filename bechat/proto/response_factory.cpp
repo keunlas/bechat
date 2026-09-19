@@ -6,6 +6,25 @@
 
 #include "bechat/core/session.h"
 
+std::string ResponseFactory::MakeResponse(uint16_t tag,
+                                          std::string_view payload) {
+  const uint16_t length = payload.size();
+  const uint16_t msg_length = NosslSession::kHeaderSize + length;
+  std::string msg(msg_length, '\0');
+
+  const uint16_t length_be{
+      std::endian::native == std::endian::big ? length : std::byteswap(length)};
+  const uint16_t tag_be{
+      std::endian::native == std::endian::big ? tag : std::byteswap(tag)};
+
+  std::memcpy(msg.data(), &tag_be, NosslSession::kTagSize);
+  std::memcpy(msg.data() + NosslSession::kTagSize, &length_be,
+              NosslSession::kLengthSize);
+  std::memcpy(msg.data() + NosslSession::kHeaderSize, payload.data(), length);
+
+  return msg;
+}
+
 std::string ResponseFactory::MakeError(uint16_t tag, uint32_t request_id,
                                        uint32_t status_code) {
   using nlohmann::json;

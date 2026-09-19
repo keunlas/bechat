@@ -7,6 +7,7 @@
 
 #include "bechat/core/io_contexts.h"
 #include "bechat/core/session_handle.h"
+#include "bechat/proto/request_params.h"
 #include "bechat/service/user_registry.h"
 
 class ServerContexts {
@@ -28,6 +29,10 @@ class ServerContexts {
    * @param session_handle 已经关闭的 Session，此时它已经不能发送数据
    */
   void OnSessionClose(const std::weak_ptr<SessionHandle>& session_handle);
+
+ private: /* handle 系列函数的参数应当采用值传递，可使用右值优化 */
+  void handle_signup(std::shared_ptr<SessionHandle>, SignupParams);
+  void handle_login(std::shared_ptr<SessionHandle>, LoginParams);
 
  private:
   IoContexts& io_context_;
