@@ -36,8 +36,8 @@ uint32_t UserRegisty::Signup(const std::string& username,
   }
 }
 
-uint32_t UserRegisty::Verify(const std::string& username,
-                             const std::string& password) {
+uint32_t UserRegisty::Login(const std::string& username,
+                            const std::string& password) {
   try {
     std::lock_guard guard(user_records_mtx_);
 

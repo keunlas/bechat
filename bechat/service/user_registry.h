@@ -28,13 +28,13 @@ class UserRegisty {
   uint32_t Signup(const std::string& username, const std::string& password);
 
   /**
-   * @brief 验证用户
+   * @brief 登录用户
    *
    * @param username 用户名
    * @param password 密码
    * @return 状态码
    */
-  uint32_t Verify(const std::string& username, const std::string& password);
+  uint32_t Login(const std::string& username, const std::string& password);
 
  private:
   std::unordered_map<std::string /* username */, UserRecord> user_records_{};

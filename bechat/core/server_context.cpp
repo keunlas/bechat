@@ -26,36 +26,8 @@ void ServerContexts::OnSessionMessage(
   auto session = session_handle.lock();
   if (!session) return;
 
-  // [TODO]
   asio::post(io_context_.GetIoContext(), [this, session, tag = message_tag,
                                           value = std::move(message_value)]() {
-    // switch (message_tag) {
-    //   case BECHAT_TAG_SIGNUP: {
-    //     nlohmann::json value = nlohmann::json::parse(message_value);
-    //     auto ret = user_registry_.Signup(value["username"],
-    //     value["password"]); if (ret == BECHAT_STATUS_SUCCESS) {
-    //       std::string str = {'\x00', '\x01', '\x00', '\x02', 'O', 'K'};
-    //       session->Send(std::move(str));
-    //     } else {
-    //       std::string str = {'\x00', '\x01', '\x00', '\x02', 'N', 'O'};
-    //       session->Send(std::move(str));
-    //     }
-    //   } break;
-    //   case BECHAT_TAG_LOGIN: {
-    //     nlohmann::json value = nlohmann::json::parse(message_value);
-    //     auto ret = user_registry_.Verify(value["username"],
-    //     value["password"]); if (ret == BECHAT_STATUS_SUCCESS) {
-    //       std::string str = {'\x00', '\x02', '\x00', '\x02', 'O', 'K'};
-    //       session->Send(std::move(str));
-    //     } else {
-    //       std::string str = {'\x00', '\x02', '\x00', '\x02', 'N', 'O'};
-    //       session->Send(std::move(str));
-    //     }
-    //   } break;
-    //   default:
-    //     session->Send(std::move(message_value));
-    //     break;
-    // }
     uint32_t request_id{0};
     auto res = RequestFactory::Parse(tag, value, &request_id);
 
@@ -66,6 +38,7 @@ void ServerContexts::OnSessionMessage(
       return;
     }
 
+    // [TODO]
     std::visit(Overloaded{
                    [&](SignupParams p) { handle_signup(session, p); },
                    [&](LoginParams p) { handle_login(session, p); },
@@ -109,13 +82,11 @@ void ServerContexts::handle_signup(std::shared_ptr<SessionHandle> session,
 
 void ServerContexts::handle_login(std::shared_ptr<SessionHandle> session,
                                   LoginParams params) {
-  // auto status = user_registry_.Signup(params.username, params.password);
-  // session->Send(MakeResponseFrame(request_tag, status));
   asio::post(io_context_.GetIoContext(), [this, session,
                                           params = std::move(params)]() {
     try {
       uint32_t status_code =
-          user_registry_.Verify(params.username, params.password);
+          user_registry_.Login(params.username, params.password);
 
       nlohmann::json jvalue = nlohmann::json::object();
       jvalue["request_id"] = params.request_id;
