@@ -51,14 +51,15 @@ uint32_t UserRegisty::Signup(const std::string& username,
   try {
     std::lock_guard guard(user_records_mtx_);
 
+    // Check username is invalid
     if (username.empty()) return BECHAT_STATUS_INVALID_PARAMS;
     if (username.size() > kMaxUsernameSize) return BECHAT_STATUS_INVALID_PARAMS;
 
-    // 1. 查找 user 是否已经注册
+    // Check username is registered
     auto it = user_records_.find(username);
     if (it != user_records_.end()) return BECHAT_STATUS_EXISTED_USER;
 
-    // 2. 计算 password 哈希
+    // Compute password hash
     std::string hash(crypto_pwhash_STRBYTES, '\0');
     auto hash_err = crypto_pwhash_str(
         hash.data(), password.c_str(), password.length(),
@@ -66,13 +67,11 @@ uint32_t UserRegisty::Signup(const std::string& username,
     if (hash_err) return BECHAT_STATUS_INTERNAL_ERROR;
     hash.resize(std::strlen(hash.c_str()));
 
-    // 3. 存储用户记录
-    auto [rec_it, inserted] =
-        user_records_.try_emplace(username, username, std::move(hash));
-    (void)rec_it;
-    if (!inserted) return BECHAT_STATUS_EXISTED_USER;
+    // Store user record
+    UserRecord record(username, std::move(hash));
+    auto ret = user_records_.try_emplace(username, std::move(record));
+    if (!ret.second) return BECHAT_STATUS_EXISTED_USER;
 
-    // 4. 返回状态码
     return BECHAT_STATUS_SUCCESS;
   } catch (const std::exception& e) {
     ERROR("UserRegisty::Signup error: {}", e.what());
@@ -87,17 +86,17 @@ uint32_t UserRegisty::Login(const std::string& username,
   try {
     std::lock_guard guard(user_records_mtx_);
 
-    // 1. 查找 user 是否已经注册
+    // Check username is registered
     auto it = user_records_.find(username);
     if (it == user_records_.end()) return BECHAT_STATUS_LOGIN_FAIL;
     auto&& rec = it->second;
 
-    // 2. 对比 password 哈希
-    auto verify_ret = crypto_pwhash_str_verify(
+    // Check password hash
+    auto verify_err = crypto_pwhash_str_verify(
         rec.password_hash.c_str(), password.c_str(), password.length());
-    if (verify_ret != 0) return BECHAT_STATUS_LOGIN_FAIL;
+    if (verify_err) return BECHAT_STATUS_LOGIN_FAIL;
 
-    // 3. JWT
+    // Generate JWT
     if (tokens) {
       // [TODO] restore refresh_token
       std::string refresh_token = get_refresh_token_now(*session);
@@ -106,7 +105,7 @@ uint32_t UserRegisty::Login(const std::string& username,
       tokens->second = std::move(access_token);
     }
 
-    // 4. 返回状态码
+    // Set session authorized
     session->SetAuthorized(username);
     return BECHAT_STATUS_SUCCESS;
 
@@ -153,7 +152,7 @@ uint32_t UserRegisty::Verify(std::shared_ptr<SessionHandle> session,
 
 uint32_t UserRegisty::Refresh(std::shared_ptr<SessionHandle> session,
                               const std::string& refresh_token,
-                              std::string& access_token) {
+                              std::string* access_token) {
   try {
     auto decoded_token = jwt::decode(refresh_token);
     std::error_code ec;
@@ -169,7 +168,7 @@ uint32_t UserRegisty::Refresh(std::shared_ptr<SessionHandle> session,
         .verify(decoded_token, ec);
 
     if (!ec) {
-      access_token = get_access_token_now(*session);
+      if (access_token) *access_token = get_access_token_now(*session);
       return BECHAT_STATUS_SUCCESS;
     }
 

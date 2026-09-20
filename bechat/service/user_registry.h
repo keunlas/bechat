@@ -36,8 +36,10 @@ class UserRegisty {
   /**
    * @brief 登录用户
    *
-   * @param username 用户名
-   * @param password 密码
+   * @param username
+   * @param password
+   * @param session
+   * @param [out] tokens
    * @return 状态码
    */
   uint32_t Login(const std::string& username, const std::string& password,
@@ -63,7 +65,7 @@ class UserRegisty {
    * @return 状态码
    */
   uint32_t Refresh(std::shared_ptr<SessionHandle> session,
-                   const std::string& refresh_token, std::string& access_token);
+                   const std::string& refresh_token, std::string* access_token);
 
  private:
   std::unordered_map<std::string /* username */, UserRecord> user_records_{};

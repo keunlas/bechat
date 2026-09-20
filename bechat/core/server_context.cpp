@@ -112,7 +112,7 @@ void ServerContexts::handle_refresh(std::shared_ptr<SessionHandle> session,
       std::string access_token{};  // new access token
       uint32_t status_code =
           session->IsAuthorized()
-              ? user_registry_.Refresh(session, p.refresh_token, access_token)
+              ? user_registry_.Refresh(session, p.refresh_token, &access_token)
               : BECHAT_STATUS_NOT_LOGIN;
 
       nlohmann::json jvalue = nlohmann::json::object();
