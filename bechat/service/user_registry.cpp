@@ -217,12 +217,10 @@ void UserRegisty::record_read_file(const std::string& path) {
   }
   std::string line{};
   std::string name{}, hash{};
+  std::lock_guard g(user_records_mtx_);
   while (std::getline(in, line)) {
     std::istringstream iss(line);
     iss >> name >> hash;
-    {
-      std::lock_guard g(user_records_mtx_);
-      user_records_.try_emplace(name, name, hash);
-    }
+    user_records_.try_emplace(name, name, hash);
   }
 }
