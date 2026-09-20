@@ -19,6 +19,7 @@
 
 #include "bechat/core/server_context.h"
 #include "bechat/core/session_handle.h"
+#include "bechat/proto/tlv_constants.h"
 #include "bechat/utils/logger.h"
 
 template <typename T>
@@ -62,19 +63,17 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
   static constexpr auto kShutdownTimeout{std::chrono::seconds(3)};
 
   // TLV 协议各字段大小
-  static constexpr uint16_t kTagSize{sizeof(uint16_t)};
-  static constexpr uint16_t kLengthSize{sizeof(uint16_t)};
-  static constexpr uint16_t kHeaderSize{kTagSize + kLengthSize};
-  static constexpr uint16_t kMaxValueSize{std::numeric_limits<uint16_t>::max()};
+  static constexpr uint16_t kTagSize{TlvConstants::kTagSize};
+  static constexpr uint16_t kLengthSize{TlvConstants::kLengthSize};
+  static constexpr uint16_t kHeaderSize{TlvConstants::kHeaderSize};
+  static constexpr uint16_t kMaxValueSize{TlvConstants::kMaxValueSize};
+  static constexpr uint16_t kMaxPayloadSize{TlvConstants::kMaxPayloadSize};
 
   // 每次读取的块的大小
   static constexpr uint16_t kChunkSize{4096U};
 
   // 一次发送的数据量的上限（发送队列中连续的小数据会被合并成一批发送）
   static constexpr std::size_t kMaxBatchSize{4096U};
-
-  // kMaxPayloadSize 必须比 kMaxValueSize 小才会起作用
-  static constexpr uint16_t kMaxPayloadSize{kMaxValueSize};
 
  public:
   explicit Session(ServerContexts& server_contexts, Socket socket)

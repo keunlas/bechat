@@ -4,48 +4,54 @@
 #include <cstring>
 #include <nlohmann/json.hpp>
 
-#include "bechat/core/session.h"
+#include "bechat/proto/tlv_constants.h"
+
+/**
+ * @brief 检查是否是大端序，不是则转换成大端序
+ *
+ */
+template <typename T>
+constexpr T check_and_byteswap(T x) {
+  if constexpr (std::endian::native == std::endian::big) {
+    return x;
+  } else {
+    return std::byteswap(x);
+  }
+}
 
 std::string ResponseFactory::MakeResponse(uint16_t tag,
-                                          std::string_view payload) {
-  const uint16_t length = payload.size();
-  const uint16_t msg_length = NosslSession::kHeaderSize + length;
-  std::string msg(msg_length, '\0');
+                                          const nlohmann::json& payload) {
+  std::string value{payload.dump()};
+  uint16_t value_size = value.size();
 
-  const uint16_t length_be{
-      std::endian::native == std::endian::big ? length : std::byteswap(length)};
-  const uint16_t tag_be{
-      std::endian::native == std::endian::big ? tag : std::byteswap(tag)};
+  std::string msg((sizeof(uint16_t) * 2) + value_size, '\0');
 
-  std::memcpy(msg.data(), &tag_be, NosslSession::kTagSize);
-  std::memcpy(msg.data() + NosslSession::kTagSize, &length_be,
-              NosslSession::kLengthSize);
-  std::memcpy(msg.data() + NosslSession::kHeaderSize, payload.data(), length);
+  const uint16_t tag_be{check_and_byteswap(tag)};
+  const uint16_t length_be{check_and_byteswap(value_size)};
+
+  std::memcpy(msg.data(), &tag_be, sizeof(uint16_t));
+  std::memcpy(msg.data() + sizeof(uint16_t), &length_be, sizeof(uint16_t));
+  std::memcpy(msg.data() + (sizeof(uint16_t) * 2), value.data(), value_size);
 
   return msg;
 }
 
 std::string ResponseFactory::MakeError(uint16_t tag, uint32_t request_id,
                                        uint32_t status_code) {
-  using nlohmann::json;
-  json jvalue = json::object();
+  nlohmann::json jvalue = nlohmann::json::object();
   jvalue["request_id"] = request_id;
   jvalue["status_code"] = status_code;
   std::string value{jvalue.dump()};
-  uint16_t length = value.size();
+  uint16_t value_size = value.size();
 
-  const uint16_t msg_length = NosslSession::kHeaderSize + length;
-  std::string msg(msg_length, '\0');
+  std::string msg(TlvConstants::kHeaderSize + value_size, '\0');
 
-  const uint16_t length_be{
-      std::endian::native == std::endian::big ? length : std::byteswap(length)};
-  const uint16_t tag_be{
-      std::endian::native == std::endian::big ? tag : std::byteswap(tag)};
+  const uint16_t tag_be{check_and_byteswap(tag)};
+  const uint16_t length_be{check_and_byteswap(value_size)};
 
-  std::memcpy(msg.data(), &tag_be, NosslSession::kTagSize);
-  std::memcpy(msg.data() + NosslSession::kTagSize, &length_be,
-              NosslSession::kLengthSize);
-  std::memcpy(msg.data() + NosslSession::kHeaderSize, value.data(), length);
+  std::memcpy(msg.data(), &tag_be, sizeof(uint16_t));
+  std::memcpy(msg.data() + sizeof(uint16_t), &length_be, sizeof(uint16_t));
+  std::memcpy(msg.data() + (sizeof(uint16_t) * 2), value.data(), value_size);
 
   return msg;
 }

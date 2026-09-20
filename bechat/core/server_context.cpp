@@ -59,61 +59,47 @@ void ServerContexts::OnSessionClose(
 
 void ServerContexts::handle_signup(std::shared_ptr<SessionHandle> session,
                                    SignupParams params) {
-  asio::post(io_context_.GetIoContext(), [this, session,
-                                          params = std::move(params)]() {
-    try {
-      uint32_t status_code =
-          user_registry_.Signup(params.username, params.password);
-
-      nlohmann::json jvalue = nlohmann::json::object();
-      jvalue["request_id"] = params.request_id;
-      jvalue["status_code"] = status_code;
-      std::string value{jvalue.dump()};
-
-      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_SIGNUP, value);
-      session->Send(std::move(resp));
-
-    } catch (const std::exception& e) {
-      ERROR("ServerContexts::handle_signup error: {}", e.what());
-      session->Send(ResponseFactory::MakeError(
-          BECHAT_TAG_SIGNUP, params.request_id, BECHAT_STATUS_INTERNAL_ERROR));
-    }
-  });
+  asio::post(
+      io_context_.GetIoContext(), [this, session, p = std::move(params)]() {
+        try {
+          nlohmann::json jvalue = nlohmann::json::object();
+          jvalue["request_id"] = p.request_id;
+          jvalue["status_code"] = user_registry_.Signup(p.username, p.password);
+          auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_SIGNUP, jvalue);
+          session->Send(std::move(resp));
+        } catch (const std::exception& e) {
+          ERROR("ServerContexts::handle_signup error: {}", e.what());
+          session->Send(ResponseFactory::MakeError(
+              BECHAT_TAG_SIGNUP, p.request_id, BECHAT_STATUS_INTERNAL_ERROR));
+        }
+      });
 }
 
 void ServerContexts::handle_login(std::shared_ptr<SessionHandle> session,
                                   LoginParams params) {
   asio::post(io_context_.GetIoContext(), [this, session,
-                                          params = std::move(params)]() {
+                                          p = std::move(params)]() {
     try {
-      uint32_t status_code{BECHAT_STATUS_SUCCESS};
       std::pair<std::string, std::string> tokens{};
-      if (session->IsAuthorized()) {
-        status_code = BECHAT_STATUS_ALREADY_LOGIN;
-      } else {
-        status_code = user_registry_.Login(params.username, params.password,
-                                           session, &tokens);
-      }
+      uint32_t status_code =
+          session->IsAuthorized()
+              ? BECHAT_STATUS_ALREADY_LOGIN
+              : user_registry_.Login(p.username, p.password, session, &tokens);
 
       nlohmann::json jvalue = nlohmann::json::object();
-      jvalue["request_id"] = params.request_id;
+      jvalue["request_id"] = p.request_id;
       jvalue["status_code"] = status_code;
-
-      // JWT
       if (status_code == BECHAT_STATUS_SUCCESS) {
         jvalue["refresh_token"] = std::move(tokens.first);
         jvalue["access_token"] = std::move(tokens.second);
       }
 
-      std::string value{jvalue.dump()};
-
-      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_LOGIN, value);
+      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_LOGIN, jvalue);
       session->Send(std::move(resp));
-
     } catch (const std::exception& e) {
       ERROR("ServerContexts::handle_signup error: {}", e.what());
-      session->Send(ResponseFactory::MakeError(
-          BECHAT_TAG_LOGIN, params.request_id, BECHAT_STATUS_INTERNAL_ERROR));
+      session->Send(ResponseFactory::MakeError(BECHAT_TAG_LOGIN, p.request_id,
+                                               BECHAT_STATUS_INTERNAL_ERROR));
     }
   });
 }
@@ -121,35 +107,27 @@ void ServerContexts::handle_login(std::shared_ptr<SessionHandle> session,
 void ServerContexts::handle_refresh(std::shared_ptr<SessionHandle> session,
                                     RefreshParams params) {
   asio::post(io_context_.GetIoContext(), [this, session,
-                                          params = std::move(params)]() {
+                                          p = std::move(params)]() {
     try {
-      uint32_t status_code{BECHAT_STATUS_SUCCESS};
-      std::string new_access_token{};
-      if (session->IsAuthorized()) {
-        status_code = user_registry_.Refresh(session, params.refresh_token,
-                                             new_access_token);
-      } else {
-        status_code = BECHAT_STATUS_NOT_LOGIN;
-      }
+      std::string access_token{};  // new access token
+      uint32_t status_code =
+          session->IsAuthorized()
+              ? user_registry_.Refresh(session, p.refresh_token, access_token)
+              : BECHAT_STATUS_NOT_LOGIN;
 
       nlohmann::json jvalue = nlohmann::json::object();
-      jvalue["request_id"] = params.request_id;
+      jvalue["request_id"] = p.request_id;
       jvalue["status_code"] = status_code;
-
-      // JWT
       if (status_code == BECHAT_STATUS_SUCCESS) {
-        jvalue["access_token"] = std::move(new_access_token);
+        jvalue["access_token"] = std::move(access_token);
       }
 
-      std::string value{jvalue.dump()};
-
-      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_REFRESH, value);
+      auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_REFRESH, jvalue);
       session->Send(std::move(resp));
-
     } catch (const std::exception& e) {
       ERROR("ServerContexts::handle_refresh error: {}", e.what());
-      session->Send(ResponseFactory::MakeError(
-          BECHAT_TAG_REFRESH, params.request_id, BECHAT_STATUS_INTERNAL_ERROR));
+      session->Send(ResponseFactory::MakeError(BECHAT_TAG_REFRESH, p.request_id,
+                                               BECHAT_STATUS_INTERNAL_ERROR));
     }
   });
 }

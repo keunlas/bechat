@@ -134,14 +134,15 @@ uint32_t UserRegisty::Verify(std::shared_ptr<SessionHandle> session,
 
     if (!ec) {
       return BECHAT_STATUS_SUCCESS;
-    } else {
-      session->SetUnauthorized();
-      if (ec.value() ==
-          static_cast<int>(
-              jwt::error::token_verification_error::token_expired)) {
+    }
+
+    session->SetUnauthorized();
+    switch (static_cast<jwt::error::token_verification_error>(ec.value())) {
+      case jwt::error::token_verification_error::token_expired:
         return BECHAT_STATUS_EXPIRED_ACCESS_TOKEN;
-      }
-      return BECHAT_STATUS_INVALID_ACCESS_TOKEN;
+
+      default:
+        return BECHAT_STATUS_INVALID_ACCESS_TOKEN;
     }
 
   } catch (const std::exception& e) {
@@ -170,14 +171,15 @@ uint32_t UserRegisty::Refresh(std::shared_ptr<SessionHandle> session,
     if (!ec) {
       access_token = get_access_token_now(*session);
       return BECHAT_STATUS_SUCCESS;
-    } else {
-      session->SetUnauthorized();
-      if (ec.value() ==
-          static_cast<int>(
-              jwt::error::token_verification_error::token_expired)) {
+    }
+
+    session->SetUnauthorized();
+    switch (static_cast<jwt::error::token_verification_error>(ec.value())) {
+      case jwt::error::token_verification_error::token_expired:
         return BECHAT_STATUS_EXPIRED_REFRESH_TOKEN;
-      }
-      return BECHAT_STATUS_INVALID_REFRESH_TOKEN;
+
+      default:
+        return BECHAT_STATUS_INVALID_REFRESH_TOKEN;
     }
 
   } catch (const std::exception& e) {
