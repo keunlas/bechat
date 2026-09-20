@@ -11,24 +11,30 @@ std::expected<RequestParams, uint32_t /* StatusCode */> RequestFactory::Parse(
   using nlohmann::json;
   uint32_t request_id{0};
   try {
-    const json val = json::parse(message_value);
+    const json val = json::parse(message_value.empty() ? "{}" : message_value);
+
+    if (!val.is_object()) {
+      if (req_id) *req_id = request_id;
+      return std::unexpected{BECHAT_STATUS_MALFORMED_PAYLOAD};
+    }
+
     if (val.contains("request_id"))
-      request_id = val["request_id"].get<uint32_t>();
+      request_id = val.at("request_id").get<uint32_t>();
     if (req_id) *req_id = request_id;
 
     switch (message_tag) {
       case BECHAT_TAG_SIGNUP: {
-        SignupParams params(request_id, val["username"], val["password"]);
+        SignupParams params(request_id, val.at("username"), val.at("password"));
         return RequestParams{std::in_place_type<SignupParams>,
                              std::move(params)};
       } break;
       case BECHAT_TAG_LOGIN: {
-        LoginParams params(request_id, val["username"], val["password"]);
+        LoginParams params(request_id, val.at("username"), val.at("password"));
         return RequestParams{std::in_place_type<LoginParams>,
                              std::move(params)};
       } break;
       case BECHAT_TAG_REFRESH: {
-        RefreshParams params(request_id, val["refresh_token"]);
+        RefreshParams params(request_id, val.at("refresh_token"));
         return RequestParams{std::in_place_type<RefreshParams>,
                              std::move(params)};
       } break;

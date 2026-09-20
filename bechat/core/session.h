@@ -278,9 +278,19 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
         len = std::byteswap(len);
       }
 
+      TRACE(
+          "Session#{} peek: "
+          "[tag = 0x{:04x}, length = {}]",
+          Id(), tag, len);
+
       // 检查 Value 字段
       std::size_t msg_len = kHeaderSize + len;
       if (streambuf_.size() < msg_len) return;
+
+      TRACE(
+          "Session#{} is reading: "
+          "[tag = 0x{:04x}, length = {}]",
+          Id(), tag, len);
 
       // 取出 Value 字段
       std::string val(len, '\0');
@@ -386,8 +396,8 @@ class Session : public std::enable_shared_from_this<Session<Socket>>,
                 write_queue_.clear();
                 handle_error(ec);
               } else {
-                INFO("Session#{} write {} bytes in {} messages", Id(), n,
-                     batch->messages.size());
+                TRACE("Session#{} write {} bytes in {} messages", Id(), n,
+                      batch->messages.size());
                 do_write();
               }
             }));
