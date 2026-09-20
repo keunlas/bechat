@@ -3,6 +3,9 @@
 #include <jwt-cpp/jwt.h>
 
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #include "bechat/proto/status_code.h"
 #include "bechat/utils/config.h"
@@ -46,6 +49,11 @@ static std::string get_refresh_token_now(SessionHandle& session) {
   return refresh_token;
 }
 
+UserRegisty::UserRegisty() {
+  // Read persistent storage
+  record_read_file(user_records_file_);
+}
+
 uint32_t UserRegisty::Signup(const std::string& username,
                              const std::string& password) {
   try {
@@ -69,8 +77,11 @@ uint32_t UserRegisty::Signup(const std::string& username,
 
     // Store user record
     UserRecord record(username, std::move(hash));
-    auto ret = user_records_.try_emplace(username, std::move(record));
+    auto ret = user_records_.try_emplace(username, record);
     if (!ret.second) return BECHAT_STATUS_EXISTED_USER;
+
+    // Persistent storage
+    record_append_file(record);
 
     return BECHAT_STATUS_SUCCESS;
   } catch (const std::exception& e) {
@@ -184,5 +195,34 @@ uint32_t UserRegisty::Refresh(std::shared_ptr<SessionHandle> session,
   } catch (const std::exception& e) {
     ERROR("UserRegisty::Verify error: {}", e.what());
     return BECHAT_STATUS_INTERNAL_ERROR;
+  }
+}
+
+void UserRegisty::record_append_file(const UserRecord& rec) {
+  std::ofstream out(user_records_file_, std::ios::app);
+  if (!out) {
+    CRITICAL("Failed save UserRecord(username: {}) to persistent storage",
+             rec.username);
+    return;
+  }
+  out << rec.username << ' ' << rec.password_hash << '\n';
+}
+
+void UserRegisty::record_read_file(const std::string& path) {
+  if (!std::filesystem::exists(path)) return;
+  std::ifstream in(path);
+  if (!in) {
+    CRITICAL("Failed read UserRecord from persistent storage \"{}\"", path);
+    return;
+  }
+  std::string line{};
+  std::string name{}, hash{};
+  while (std::getline(in, line)) {
+    std::istringstream iss(line);
+    iss >> name >> hash;
+    {
+      std::lock_guard g(user_records_mtx_);
+      user_records_.try_emplace(name, name, hash);
+    }
   }
 }

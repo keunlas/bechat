@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "bechat/core/session_handle.h"
+#include "bechat/utils/config.h"
 
 struct UserRecord {
   std::string username;
@@ -22,6 +23,9 @@ struct UserRecord {
 class UserRegisty {
  public:
   static constexpr uint16_t kMaxUsernameSize{32};
+
+ public:
+  UserRegisty();
 
  public:
   /**
@@ -68,8 +72,13 @@ class UserRegisty {
                    const std::string& refresh_token, std::string* access_token);
 
  private:
+  void record_append_file(const UserRecord& rec);
+  void record_read_file(const std::string& path);
+
+ private:
   std::unordered_map<std::string /* username */, UserRecord> user_records_{};
   std::mutex user_records_mtx_{};
+  std::string user_records_file_{Config::CfgPath() + "/user_records.db"};
 };
 
 #endif  // !BECHAT_SERVICE_USER_REGISTRY_H_
