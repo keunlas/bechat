@@ -38,13 +38,12 @@ void ServerContexts::OnSessionMessage(
       return;
     }
 
-    // [TODO]
     std::visit(Overloaded{
                    [&](SignupParams p) { handle_signup(session, p); },
                    [&](LoginParams p) { handle_login(session, p); },
                    [&](RefreshParams p) { handle_refresh(session, p); },
                },
-               *res);
+               res.value());
   });
 }
 
@@ -97,7 +96,7 @@ void ServerContexts::handle_login(std::shared_ptr<SessionHandle> session,
       auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_LOGIN, jvalue);
       session->Send(std::move(resp));
     } catch (const std::exception& e) {
-      ERROR("ServerContexts::handle_signup error: {}", e.what());
+      ERROR("ServerContexts::handle_login error: {}", e.what());
       session->Send(ResponseFactory::MakeError(BECHAT_TAG_LOGIN, p.request_id,
                                                BECHAT_STATUS_INTERNAL_ERROR));
     }
