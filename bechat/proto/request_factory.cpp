@@ -13,10 +13,11 @@ std::expected<RequestParams, uint32_t /* StatusCode */> RequestFactory::Parse(
   try {
     const json val = json::parse(message_value.empty() ? "{}" : message_value);
 
-    if (!val.is_object()) {
-      if (req_id) *req_id = request_id;
-      return std::unexpected{BECHAT_STATUS_MALFORMED_PAYLOAD};
-    }
+    // [DEPRECATED] 以后可能有报文的解析结果不是 json 对象
+    // if (!val.is_object()) {
+    //   if (req_id) *req_id = request_id;
+    //   return std::unexpected{BECHAT_STATUS_MALFORMED_PAYLOAD};
+    // }
 
     if (val.contains("request_id"))
       request_id = val.at("request_id").get<uint32_t>();

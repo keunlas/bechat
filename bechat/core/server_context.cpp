@@ -61,9 +61,14 @@ void ServerContexts::handle_signup(std::shared_ptr<SessionHandle> session,
   asio::post(
       io_context_.GetIoContext(), [this, session, p = std::move(params)]() {
         try {
+          uint32_t status_code =
+              session->IsAuthorized()
+                  ? BECHAT_STATUS_ALREADY_LOGIN
+                  : user_registry_.Signup(p.username, p.password);
+
           nlohmann::json jvalue = nlohmann::json::object();
           jvalue["request_id"] = p.request_id;
-          jvalue["status_code"] = user_registry_.Signup(p.username, p.password);
+          jvalue["status_code"] = status_code;
           auto resp = ResponseFactory::MakeResponse(BECHAT_TAG_SIGNUP, jvalue);
           session->Send(std::move(resp));
         } catch (const std::exception& e) {
